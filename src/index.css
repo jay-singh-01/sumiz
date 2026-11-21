@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+/* Preliminary brand tokens. Phase 3 expands these into the full
+   "Rajasthani Royal Boutique" design system with dark mode and fonts. */
+@theme {
+  --color-ivory: #fdf8ef;
+  --color-rani: #c2185b;
+  --color-marigold: #f59e0b;
+  --color-indigo-royal: #1e2a78;
+  --color-emerald-deep: #047857;
+  --color-gold: #b8860b;
+  --color-ink: #2b1d14;
+}
+
+html {
+  font-size: 106.25%; /* 17px base, per spec accessibility rules */
+}
+
+body {
+  background: var(--color-ivory);
+  color: var(--color-ink);
+  font-family: system-ui, "Noto Sans Devanagari", sans-serif;
+}
