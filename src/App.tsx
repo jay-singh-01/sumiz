@@ -1,19 +1,54 @@
-import { useState } from 'react'
-import { formatDate, formatINR } from '@/lib/format'
+import { useState, useSyncExternalStore } from 'react'
+import { AuthGate, useSession } from '@/auth/AuthGate'
+import { BigButton, Screen } from '@/auth/ui'
+import { getConflictTick, getPendingCount, subscribeOutbox } from '@/data/outbox'
+import { LanguageProvider, useI18n } from '@/i18n'
 
-// Phase 1 placeholder: proves Tailwind, the path alias and Indian formatting
-// are wired up. Replaced by the real app shell in Phase 3.
-export default function App() {
-  const [today] = useState(() => new Date())
+// Phase 2 placeholder home: exercises the session (lock, sign out, sign out
+// everywhere). Replaced by the real app shell and home screen in Phase 3.
+function Home() {
+  const { t } = useI18n()
+  const { member, lock, signOut, signOutAll } = useSession()
+  const pending = useSyncExternalStore(subscribeOutbox, getPendingCount)
+  useSyncExternalStore(subscribeOutbox, getConflictTick)
+  const [confirming, setConfirming] = useState(false)
+
   return (
-    <main className="mx-auto flex min-h-svh max-w-md flex-col items-center justify-center gap-4 px-4 text-center">
-      <h1 className="text-4xl font-bold text-rani">गोटा & धागा</h1>
-      <p className="text-lg text-indigo-royal">Gota &amp; Dhaaga · by Sumitra · राजस्थानी सिलाई</p>
-      <p className="italic text-gold">हर टांके में अपनापन</p>
-      <p className="rounded-xl border-2 border-gold bg-white px-4 py-3 tabular-nums">
-        {formatINR(125000)} · {formatDate(today)}
-      </p>
-      <p className="text-sm text-ink/70">Setup complete — Phase 1</p>
-    </main>
+    <Screen title={t('welcome', { name: member.name })} help={`${t(`role_${member.role}`)} · ${t('phase2Placeholder')}`}>
+      <p className="text-base text-ink/70 tabular-nums">sync: {pending === 0 ? '✅' : `🔄 ${pending}`}</p>
+      <BigButton variant="secondary" onClick={lock}>
+        🔒 {t('lockNow')}
+      </BigButton>
+      <BigButton variant="secondary" onClick={() => void signOut()}>
+        🚪 {t('signOut')}
+      </BigButton>
+      {!confirming ? (
+        <BigButton variant="danger" onClick={() => setConfirming(true)}>
+          📵 {t('signOutAll')}
+        </BigButton>
+      ) : (
+        <div className="rounded-2xl border-2 border-red-700 bg-white p-4">
+          <p className="mb-3 text-lg">{t('signOutAllConfirm')}</p>
+          <div className="grid grid-cols-2 gap-3">
+            <BigButton variant="danger" onClick={() => void signOutAll()}>
+              {t('yes')}
+            </BigButton>
+            <BigButton variant="secondary" onClick={() => setConfirming(false)}>
+              {t('no')}
+            </BigButton>
+          </div>
+        </div>
+      )}
+    </Screen>
+  )
+}
+
+export default function App() {
+  return (
+    <LanguageProvider>
+      <AuthGate>
+        <Home />
+      </AuthGate>
+    </LanguageProvider>
   )
 }

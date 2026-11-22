@@ -1,11 +1,224 @@
 rules_version = '2';
 
-// Phase 1: locked down completely. Phase 2 replaces this with shop-scoped
-// rules (no deletes, append-only audit log, field validation).
+// Gota & Dhaaga security rules.
+//
+// Guarantees (each covered by tests/rules):
+//  - Nothing can ever be hard-deleted. Deletes are soft (isDeleted flag).
+//  - Every business write must be accompanied, in the same atomic batch, by an
+//    audit-log entry with the deterministic id "<collection>_<docId>_v<version>".
+//  - The audit log is append-only: create only, never update or delete.
+//  - Every write bumps `version` by exactly one, so two devices editing the same
+//    record from the same starting version can't both win (optimistic locking
+//    that also works offline, unlike client transactions).
+//  - Users only see the shop they belong to. "Sign out of all devices" is
+//    enforced here via users/{uid}.revokedBefore vs the token's auth_time.
+//  - Helpers can't change rates, settings or user roles.
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if false;
+
+    // ---------- helpers ----------
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    function shopPath(shopId) {
+      return /databases/$(database)/documents/shops/$(shopId);
+    }
+
+    function memberPath(shopId) {
+      return /databases/$(database)/documents/shops/$(shopId)/users/$(uid());
+    }
+
+    function me(shopId) {
+      return get(memberPath(shopId)).data;
+    }
+
+    function isMember(shopId) {
+      return signedIn()
+        && exists(memberPath(shopId))
+        && me(shopId).isDeleted == false
+        && request.auth.token.auth_time * 1000
+             >= me(shopId).get('revokedBefore', timestamp.value(0)).toMillis();
+    }
+
+    function myRole(shopId) {
+      return me(shopId).role;
+    }
+
+    function isManager(shopId) {
+      return myRole(shopId) in ['owner', 'admin'];
+    }
+
+    // Business collections that follow the standard versioned/audited pattern.
+    function isBusiness(coll) {
+      return coll in [
+        'customers', 'measurements', 'orders', 'bills', 'payments', 'reminders',
+        'expenses', 'karigars', 'garmentTypes', 'addOns', 'settings', 'counters'
+      ];
+    }
+
+    // Collections only owner/admin may write.
+    function isManagerOnly(coll) {
+      return coll in ['garmentTypes', 'addOns', 'settings'];
+    }
+
+    function validCreateMeta() {
+      let d = request.resource.data;
+      return d.version == 1
+        && d.createdBy == uid() && d.updatedBy == uid()
+        && d.createdAt == request.time && d.updatedAt == request.time
+        && d.isDeleted == false;
+    }
+
+    function validUpdateMeta() {
+      let d = request.resource.data;
+      let o = resource.data;
+      return d.version == o.version + 1
+        && d.updatedBy == uid() && d.updatedAt == request.time
+        && d.createdAt == o.createdAt && d.createdBy == o.createdBy
+        && d.isDeleted is bool
+        // Soft delete must record who and when.
+        && (o.isDeleted == true || d.isDeleted == false
+            || (d.deletedBy == uid() && d.deletedAt == request.time));
+    }
+
+    // The matching audit entry must exist once the batch is applied.
+    function audited(shopId, coll, docId, version) {
+      let path = /databases/$(database)/documents/shops/$(shopId)/auditLogs/$(coll + '_' + docId + '_v' + string(version));
+      return existsAfter(path)
+        && getAfter(path).data.entityType == coll
+        && getAfter(path).data.entityId == docId
+        && getAfter(path).data.actorUid == uid();
+    }
+
+    function auditedCreate(shopId, coll, docId) {
+      return validCreateMeta() && audited(shopId, coll, docId, 1);
+    }
+
+    function auditedUpdate(shopId, coll, docId) {
+      return validUpdateMeta() && audited(shopId, coll, docId, request.resource.data.version);
+    }
+
+    function validRole(role) {
+      return role in ['owner', 'admin', 'helper'];
+    }
+
+    // ---------- top-level ----------
+
+    match /shops/{shopId} {
+      allow read: if isMember(shopId);
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == uid()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && auditedCreate(shopId, 'shops', shopId);
+      allow update: if isMember(shopId) && isManager(shopId)
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && auditedUpdate(shopId, 'shops', shopId);
+      allow delete: if false;
+
+      // Members of this shop.
+      match /users/{userId} {
+        allow read: if isMember(shopId);
+
+        // Either the shop owner bootstrapping the shop, or someone accepting
+        // an invite addressed to their verified Google email.
+        allow create: if signedIn() && userId == uid()
+          && request.resource.data.name is string
+          && auditedCreate(shopId, 'users', userId)
+          && (
+            (getAfter(shopPath(shopId)).data.ownerUid == uid()
+              && request.resource.data.role == 'owner')
+            || (request.auth.token.email_verified == true
+              && exists(/databases/$(database)/documents/invites/$(request.auth.token.email.lower()))
+              && get(/databases/$(database)/documents/invites/$(request.auth.token.email.lower())).data.shopId == shopId
+              && get(/databases/$(database)/documents/invites/$(request.auth.token.email.lower())).data.isDeleted == false
+              && request.resource.data.role == get(/databases/$(database)/documents/invites/$(request.auth.token.email.lower())).data.role
+              && request.resource.data.role != 'owner')
+          );
+
+        allow update: if isMember(shopId)
+          && validRole(request.resource.data.role)
+          && auditedUpdate(shopId, 'users', userId)
+          && (
+            // Self-service: own PIN, language, name, sign-out-everywhere. No role change.
+            (userId == uid()
+              && request.resource.data.role == resource.data.role
+              && request.resource.data.isDeleted == resource.data.isDeleted
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                   'name', 'language', 'pinHash', 'pinSalt', 'revokedBefore',
+                   'version', 'updatedAt', 'updatedBy'])
+              && (!('revokedBefore' in request.resource.data.diff(resource.data).affectedKeys())
+                  || request.resource.data.revokedBefore == request.time))
+            // Managers manage everyone except the owner, and can't mint owners.
+            || (isManager(shopId) && userId != uid()
+              && resource.data.role != 'owner'
+              && request.resource.data.role != 'owner')
+          );
+        allow delete: if false;
+      }
+
+      // Append-only audit trail.
+      match /auditLogs/{logId} {
+        allow read: if isMember(shopId);
+        allow create: if signedIn()
+          && request.resource.data.actorUid == uid()
+          && request.resource.data.at == request.time
+          && request.resource.data.action in [
+               'create', 'update', 'delete', 'restore', 'login', 'logout',
+               'export', 'backup', 'restoreBackup', 'signOutAll']
+          && request.resource.data.entityType is string
+          && request.resource.data.entityId is string
+          && request.resource.data.keys().hasOnly([
+               'actorUid', 'actorName', 'at', 'device', 'action', 'entityType',
+               'entityId', 'entityLabel', 'changes', 'note'])
+          // Members only, except while bootstrapping a shop / accepting an
+          // invite, when the membership doc lands in this same batch.
+          && (isMember(shopId) || existsAfter(memberPath(shopId)));
+        allow update, delete: if false;
+      }
+
+      // Standard business records.
+      match /{coll}/{docId} {
+        allow read: if isBusiness(coll) && isMember(shopId);
+        allow create: if isBusiness(coll) && isMember(shopId)
+          && (!isManagerOnly(coll) || isManager(shopId))
+          && auditedCreate(shopId, coll, docId);
+        allow update: if isBusiness(coll) && isMember(shopId)
+          && (!isManagerOnly(coll) || isManager(shopId))
+          && auditedUpdate(shopId, coll, docId);
+        allow delete: if false;
+      }
+    }
+
+    // Which shop a signed-in user belongs to (looked up at login).
+    match /userShops/{userId} {
+      allow read: if signedIn() && userId == uid();
+      allow create, update: if signedIn() && userId == uid()
+        && request.resource.data.keys().hasOnly(['shopId'])
+        && existsAfter(/databases/$(database)/documents/shops/$(request.resource.data.shopId)/users/$(uid()));
+      allow delete: if false;
+    }
+
+    // Pending invitations, keyed by lower-cased email.
+    match /invites/{email} {
+      allow read: if signedIn()
+        && (request.auth.token.email.lower() == email || isMember(resource.data.shopId));
+      allow create: if signedIn()
+        && isMember(request.resource.data.shopId) && isManager(request.resource.data.shopId)
+        && validRole(request.resource.data.role) && request.resource.data.role != 'owner'
+        && auditedCreate(request.resource.data.shopId, 'invites', email);
+      allow update: if signedIn()
+        && isMember(resource.data.shopId) && isManager(resource.data.shopId)
+        && request.resource.data.shopId == resource.data.shopId
+        && validRole(request.resource.data.role) && request.resource.data.role != 'owner'
+        && auditedUpdate(resource.data.shopId, 'invites', email);
+      allow delete: if false;
     }
   }
 }
