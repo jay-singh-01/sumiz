@@ -176,7 +176,7 @@ describe('append-only audit log', () => {
 })
 
 describe('helper role limits', () => {
-  const garment = (uid: string) => ({ nameHi: 'ब्लाउज़', nameEn: 'Blouse', rate: 300, ...createMeta(uid) })
+  const garment = (uid: string) => ({ nameHi: 'ब्लाउज़', nameEn: 'Blouse', defaultRate: 300, measurementFields: [], active: true, ...createMeta(uid) })
 
   it('helpers cannot create or edit rates', async () => {
     await assertFails(
@@ -187,6 +187,42 @@ describe('helper role limits', () => {
   it('owner and admin can', async () => {
     await assertSucceeds(
       auditedWrite(as(env, 'admin'), { uid: 'admin', coll: 'garmentTypes', id: 'g1', version: 1, data: garment('admin'), action: 'create' }),
+    )
+  })
+})
+
+describe('field validation', () => {
+  const create = (coll: string, data: Record<string, unknown>) =>
+    auditedWrite(as(env, 'owner'), { uid: 'owner', coll, id: 'x1', version: 1, data: { ...data, ...createMeta('owner') }, action: 'create' })
+
+  it('requires a customer name', async () => {
+    await assertFails(create('customers', { name: '', phone: '' }))
+    await assertFails(create('customers', { phone: '9829012345' }))
+    await assertSucceeds(create('customers', { name: 'रीना', phone: '9829012345', tags: ['vip'] }))
+  })
+
+  it('rejects wrongly-typed customer fields', async () => {
+    await assertFails(create('customers', { name: 'रीना', phone: 9829012345 }))
+    await assertFails(create('customers', { name: 'रीना', tags: 'vip' }))
+  })
+
+  it('validates measurements', async () => {
+    await assertFails(create('measurements', { customerId: 'c1', garmentTypeId: 'g1', values: 'bad', takenOn: '2026-11-21' }))
+    await assertSucceeds(create('measurements', { customerId: 'c1', garmentTypeId: 'g1', values: { bust: '34' }, takenOn: '2026-11-21' }))
+  })
+
+  it('rejects negative rates', async () => {
+    await assertFails(create('garmentTypes', { nameHi: 'कुर्ती', defaultRate: -1, measurementFields: [], active: true }))
+    await assertFails(create('addOns', { nameHi: 'अस्तर', defaultRate: -5, active: true }))
+    await assertSucceeds(create('addOns', { nameHi: 'अस्तर', defaultRate: 120, active: true }))
+  })
+
+  it('validates updates too', async () => {
+    await assertFails(
+      auditedWrite(as(env, 'owner'), {
+        uid: 'owner', coll: 'customers', id: 'c1', version: 2, merge: true, action: 'update',
+        data: { name: '', ...updateMeta('owner', 2) },
+      }),
     )
   })
 })

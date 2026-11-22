@@ -55,6 +55,12 @@ describe('real write helpers vs real rules', () => {
     expect((await read(`userShops/sumitra`)).shopId).toBe(shopId)
   })
 
+  it('seeds the Rajasthani garment list and add-ons on first run', async () => {
+    await vi.waitFor(async () => expect((await read(`shops/${shopId}/garmentTypes/blouse-simple`)).nameHi).toBe('ब्लाउज़ (सादा)'), { timeout: 10000 })
+    expect((await read(`shops/${shopId}/addOns/gota-patti`)).defaultRate).toBe(400)
+    expect((await read(`shops/${shopId}/auditLogs/garmentTypes_rajputi-poshak_v1`)).action).toBe('create')
+  })
+
   it('creates, updates, soft-deletes and restores with an audit trail', async () => {
     const { id, committed } = write.createRecord(ctx(), 'customers', customerSchema, { name: 'रीना', phone: '9800000000' }, { label: 'रीना' })
     await committed

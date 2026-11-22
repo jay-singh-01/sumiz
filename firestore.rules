@@ -104,6 +104,47 @@ service cloud.firestore {
       return validUpdateMeta() && audited(shopId, coll, docId, request.resource.data.version);
     }
 
+    // ---------- per-collection field validation (mirrors the Zod schemas) ----------
+
+    function optionalString(d, key, max) {
+      return !(key in d) || (d[key] is string && d[key].size() <= max);
+    }
+
+    function validCustomer(d) {
+      return d.name is string && d.name.size() > 0 && d.name.size() <= 80
+        && optionalString(d, 'phone', 15) && optionalString(d, 'altPhone', 15)
+        && optionalString(d, 'notes', 1000)
+        && (!('tags' in d) || (d.tags is list && d.tags.size() <= 10));
+    }
+
+    function validMeasurement(d) {
+      return d.customerId is string && d.customerId.size() > 0
+        && d.garmentTypeId is string && d.garmentTypeId.size() > 0
+        && d.values is map && d.values.size() <= 60
+        && d.takenOn is string;
+    }
+
+    function validGarmentType(d) {
+      return d.nameHi is string && d.nameHi.size() > 0 && d.nameHi.size() <= 60
+        && d.defaultRate is number && d.defaultRate >= 0
+        && d.measurementFields is list && d.measurementFields.size() <= 40
+        && d.active is bool;
+    }
+
+    function validAddOn(d) {
+      return d.nameHi is string && d.nameHi.size() > 0 && d.nameHi.size() <= 60
+        && d.defaultRate is number && d.defaultRate >= 0
+        && d.active is bool;
+    }
+
+    function validData(coll, d) {
+      return coll == 'customers' ? validCustomer(d)
+        : coll == 'measurements' ? validMeasurement(d)
+        : coll == 'garmentTypes' ? validGarmentType(d)
+        : coll == 'addOns' ? validAddOn(d)
+        : true;
+    }
+
     function validRole(role) {
       return role in ['owner', 'admin', 'helper'];
     }
@@ -188,9 +229,11 @@ service cloud.firestore {
         allow read: if isBusiness(coll) && isMember(shopId);
         allow create: if isBusiness(coll) && isMember(shopId)
           && (!isManagerOnly(coll) || isManager(shopId))
+          && validData(coll, request.resource.data)
           && auditedCreate(shopId, coll, docId);
         allow update: if isBusiness(coll) && isMember(shopId)
           && (!isManagerOnly(coll) || isManager(shopId))
+          && validData(coll, request.resource.data)
           && auditedUpdate(shopId, coll, docId);
         allow delete: if false;
       }

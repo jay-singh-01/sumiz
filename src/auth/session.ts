@@ -11,6 +11,7 @@ import { auth, db, googleProvider } from '@/lib/firebase'
 import { DEFAULT_SETTINGS, inviteSchema, settingsSchema, shopSchema, userSchema, type Invite, type ShopUser } from '@/data/schemas'
 import type { Language, Stored } from '@/data/types'
 import { commitTracked, createRecord, logEvent, stageCreate, updateRecord, type WriteCtx } from '@/data/write'
+import { seedMasterData } from '@/features/master/seed'
 import { hashPin } from './pin'
 
 const JUST_SIGNED_IN = 'gd.justSignedIn'
@@ -107,6 +108,8 @@ export function createShop(user: User, form: SetupForm): string {
     { ...DEFAULT_SETTINGS, shopName: form.shopName, upiId: form.upiId, language: form.language },
     { id: 'main', label: form.shopName },
   )
+  // Third batch: the Rajasthani garment list, rates and add-ons (all editable).
+  seedMasterData(ctx)
   return shopId
 }
 

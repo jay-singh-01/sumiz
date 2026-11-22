@@ -1,4 +1,4 @@
-import { AlertTriangle, KeyRound, Lock, LogOut, MonitorSmartphone, Palette, Store, Type, UserPlus, Users } from 'lucide-react'
+import { AlertTriangle, KeyRound, Lock, LogOut, MonitorSmartphone, Palette, Shirt, Store, Type, UserPlus, Users } from 'lucide-react'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Link } from 'react-router'
 import { z } from 'zod'
@@ -281,6 +281,13 @@ export function SettingsPage() {
       <Conflicts />
       <ShopDetails />
       <Display />
+      {isManager && (
+        <Button asChild variant="secondary" block>
+          <Link to="/master">
+            <Shirt /> {t('master')}
+          </Link>
+        </Button>
+      )}
       {isManager && <Team />}
       <Security onChangePin={() => setChangingPin(true)} />
       {isManager && (

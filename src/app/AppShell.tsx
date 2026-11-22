@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { BarChart3, Home, Palette, Scissors, Settings as SettingsIcon, Users } from 'lucide-react'
+import { BarChart3, Home, Palette, Scissors, Settings as SettingsIcon, Shirt, Users } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { NavLink, useLocation, useOutlet } from 'react-router'
 import logoUrl from '@/assets/logo.svg'
@@ -25,6 +25,7 @@ const NAV: NavItem[] = [
   { to: '/orders', label: 'nav_orders', icon: <Scissors />, mobile: true },
   { to: '/summary', label: 'nav_summary', icon: <BarChart3 /> },
   { to: '/settings', label: 'nav_settings', icon: <SettingsIcon />, mobile: true },
+  { to: '/master', label: 'master', icon: <Shirt />, managerOnly: true },
   { to: '/design', label: 'nav_design', icon: <Palette />, managerOnly: true },
 ]
 
