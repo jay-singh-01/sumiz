@@ -47,6 +47,23 @@ export function subscribeOutbox(listener: () => void): () => void {
 export const getPendingCount = () => pending
 export const getConflictTick = () => conflictTick
 
+// Writes queued in an earlier session (app closed while offline) live in
+// Firestore's own queue; we can't count them, but we know when they're flushed.
+let flushingLeftovers = false
+export const isFlushingLeftovers = () => flushingLeftovers
+
+export function watchLeftoverWrites(db: Firestore): void {
+  void entries(outboxStore).then((list) => {
+    if (list.length === 0) return
+    flushingLeftovers = true
+    emit()
+    void waitForPendingWrites(db).finally(() => {
+      flushingLeftovers = false
+      emit()
+    })
+  })
+}
+
 /** JSON-safe copy for IndexedDB (drops Firestore sentinels' internals, keeps the user's data). */
 function snapshot(data: unknown): unknown {
   try {

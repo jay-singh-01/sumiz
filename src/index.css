@@ -1,23 +1,162 @@
 @import "tailwindcss";
 
-/* Preliminary brand tokens. Phase 3 expands these into the full
-   "Rajasthani Royal Boutique" design system with dark mode and fonts. */
-@theme {
-  --color-ivory: #fdf8ef;
-  --color-rani: #c2185b;
-  --color-marigold: #f59e0b;
-  --color-indigo-royal: #1e2a78;
-  --color-emerald-deep: #047857;
-  --color-gold: #b8860b;
-  --color-ink: #2b1d14;
+/* ============================================================
+   "Rajasthani Royal Boutique" design tokens.
+   Raw colours live on :root / [data-theme="dark"]; Tailwind
+   utilities (bg-rani, text-ink…) map onto them via @theme inline.
+   Every text/background pair used in the UI is checked for WCAG AA
+   by src/design/contrast.test.ts, which parses this file.
+   ============================================================ */
+
+:root,
+.theme-light {
+  --ivory: #fff8ec;        /* page background */
+  --surface: #ffffff;      /* cards */
+  --surface-2: #fdf0dc;    /* subtle fills, table stripes */
+  --ink: #2a1b12;          /* body text */
+  --ink-muted: #6b5444;    /* secondary text */
+  --line: #ead9bf;         /* borders */
+  --rani: #d6125b;         /* rani pink: primary actions */
+  --rani-deep: #a50e47;    /* pressed / hover */
+  --on-rani: #ffffff;
+  --marigold: #f59e0b;     /* highlights, chips */
+  --on-marigold: #2a1b12;
+  --saffron: #ff7a1a;
+  --indigo: #1f2a7a;       /* royal blue: headings, secondary buttons */
+  --on-indigo: #ffffff;
+  --emerald: #047857;      /* success, "paid" */
+  --on-emerald: #ffffff;
+  --gold: #c9971c;         /* decorative only (borders, motifs) */
+  --gold-deep: #8a6408;    /* gold-coloured text */
+  --danger: #b91c1c;
+  --on-danger: #ffffff;
+  --motif-opacity: 0.07;
+  color-scheme: light;
 }
 
-html {
-  font-size: 106.25%; /* 17px base, per spec accessibility rules */
+/* रात मोड. Enabled per device from Settings (behind a feature flag). */
+[data-theme="dark"] {
+  --ivory: #1a1020;
+  --surface: #251830;
+  --surface-2: #2f2040;
+  --ink: #f8eedd;
+  --ink-muted: #cbb9a4;
+  --line: #45325a;
+  --rani: #ff4f8b;
+  --rani-deep: #ff7aa8;
+  --on-rani: #1a1020;
+  --marigold: #fbbf24;
+  --on-marigold: #1a1020;
+  --saffron: #ff9a4d;
+  --indigo: #b4bdfc;
+  --on-indigo: #1a1020;
+  --emerald: #34d399;
+  --on-emerald: #1a1020;
+  --gold: #e3b94b;
+  --gold-deep: #e3b94b;
+  --danger: #f87171;
+  --on-danger: #1a1020;
+  --motif-opacity: 0.05;
+  color-scheme: dark;
 }
 
-body {
-  background: var(--color-ivory);
-  color: var(--color-ink);
-  font-family: system-ui, "Noto Sans Devanagari", sans-serif;
+@theme inline {
+  --color-ivory: var(--ivory);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-line: var(--line);
+  --color-rani: var(--rani);
+  --color-rani-deep: var(--rani-deep);
+  --color-on-rani: var(--on-rani);
+  --color-marigold: var(--marigold);
+  --color-on-marigold: var(--on-marigold);
+  --color-saffron: var(--saffron);
+  --color-indigo-royal: var(--indigo);
+  --color-on-indigo: var(--on-indigo);
+  --color-emerald-deep: var(--emerald);
+  --color-on-emerald: var(--on-emerald);
+  --color-gold: var(--gold);
+  --color-gold-deep: var(--gold-deep);
+  --color-danger: var(--danger);
+  --color-on-danger: var(--on-danger);
+
+  --font-display: "Rozha One", "Mukta", serif;
+  --font-sans: "Mukta", system-ui, sans-serif;
+
+  --radius-card: 1.25rem;
+}
+
+@layer base {
+  html {
+    font-size: 106.25%; /* 17px base */
+    -webkit-tap-highlight-color: transparent;
+  }
+  html.text-large {
+    font-size: 125%; /* large-text mode: 20px base */
+  }
+  body {
+    background-color: var(--ivory);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    min-height: 100svh;
+  }
+  /* Faint bandhani tie-dye dots behind everything. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: var(--motif-opacity);
+    background-image:
+      radial-gradient(circle at 12px 12px, var(--rani) 2px, transparent 2.5px),
+      radial-gradient(circle at 6px 12px, var(--rani) 1.4px, transparent 1.9px),
+      radial-gradient(circle at 18px 12px, var(--rani) 1.4px, transparent 1.9px),
+      radial-gradient(circle at 12px 6px, var(--rani) 1.4px, transparent 1.9px),
+      radial-gradient(circle at 12px 18px, var(--rani) 1.4px, transparent 1.9px),
+      radial-gradient(circle at 36px 36px, var(--marigold) 2px, transparent 2.5px);
+    background-size: 48px 48px;
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    line-height: 1.25;
+    color: var(--indigo);
+  }
+  :focus-visible {
+    outline: 3px solid var(--marigold);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  /* Money always lines up. */
+  .money {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+  /* Leheriya: multi-colour diagonal waves, used as a divider strip. */
+  .leheriya {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      var(--rani) 0 6px,
+      var(--marigold) 6px 12px,
+      var(--emerald) 12px 18px,
+      var(--indigo) 18px 24px,
+      var(--saffron) 24px 30px
+    );
+  }
+  .pb-safe {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

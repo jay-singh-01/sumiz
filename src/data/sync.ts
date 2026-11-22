@@ -5,6 +5,7 @@ import {
   onSnapshot,
   query,
   Timestamp,
+  waitForPendingWrites,
   where,
   type DocumentData,
   type QueryDocumentSnapshot,
@@ -56,57 +57,78 @@ export function newestUpdate(docs: { updatedAt?: unknown }[], current: number): 
 
 export type SyncListener = (coll: AuditedCollection) => void
 
+/** Retry delay after a listener error: 1s, 2s, 4s… capped at 60s. */
+export function retryDelay(attempt: number): number {
+  return Math.min(60_000, 1000 * 2 ** attempt)
+}
+
 export function startDeltaSync(shopId: string, collections: readonly AuditedCollection[], onChange: SyncListener): () => void {
-  let unsubs: (() => void)[] = []
+  const unsubs = new Map<AuditedCollection, () => void>()
+  const timers = new Set<ReturnType<typeof setTimeout>>()
+  let stopped = false
   let hiddenAt: number | null = null
 
-  const listen = async () => {
-    unsubs.forEach((u) => u())
-    unsubs = []
-    for (const coll of collections) {
-      let since = readMarker(shopId, coll)
-      // If the browser wiped the cache but not localStorage, start over.
-      if (since > 0) {
-        const cached = await getDocsFromCache(collection(db, 'shops', shopId, coll)).catch(() => null)
-        if (!cached || cached.empty) since = 0
-      }
-      const q = query(
-        collection(db, 'shops', shopId, coll),
-        where('updatedAt', '>=', Timestamp.fromMillis(Math.max(0, since - OVERLAP_MS))),
-      )
-      unsubs.push(
-        onSnapshot(
-          q,
-          (snap) => {
-            const newest = newestUpdate(
-              snap.docs.map((d: QueryDocumentSnapshot<DocumentData>) => d.data({ serverTimestamps: 'none' })),
-              since,
-            )
-            if (newest > since) {
-              since = newest
-              writeMarker(shopId, coll, newest)
-            }
-            if (!snap.metadata.fromCache || snap.docChanges().length > 0) onChange(coll)
-          },
-          (err) => console.error(`Sync listener for ${coll} failed`, err),
-        ),
-      )
+  const listenOne = async (coll: AuditedCollection, attempt = 0) => {
+    unsubs.get(coll)?.()
+    let since = readMarker(shopId, coll)
+    // If the browser wiped the cache but not localStorage, start over.
+    if (since > 0) {
+      const cached = await getDocsFromCache(collection(db, 'shops', shopId, coll)).catch(() => null)
+      if (!cached || cached.empty) since = 0
     }
+    if (stopped) return
+    const q = query(
+      collection(db, 'shops', shopId, coll),
+      where('updatedAt', '>=', Timestamp.fromMillis(Math.max(0, since - OVERLAP_MS))),
+    )
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        attempt = 0
+        const newest = newestUpdate(
+          snap.docs.map((d: QueryDocumentSnapshot<DocumentData>) => d.data({ serverTimestamps: 'none' })),
+          since,
+        )
+        if (newest > since) {
+          since = newest
+          writeMarker(shopId, coll, newest)
+        }
+        if (!snap.metadata.fromCache || snap.docChanges().length > 0) onChange(coll)
+      },
+      async (err) => {
+        // Typical cause: a brand-new membership that hasn't reached the server
+        // yet (permission-denied), or a transient backend error. Never give up:
+        // wait for our queued writes, back off, and listen again.
+        console.warn(`Sync listener for ${coll} failed (attempt ${attempt + 1}), retrying`, err.code)
+        await waitForPendingWrites(db).catch(() => undefined)
+        if (stopped) return
+        const timer = setTimeout(() => {
+          timers.delete(timer)
+          void listenOne(coll, attempt + 1)
+        }, retryDelay(attempt))
+        timers.add(timer)
+      },
+    )
+    unsubs.set(coll, unsub)
   }
+
+  const listenAll = () => collections.forEach((c) => void listenOne(c))
 
   const onVisibility = () => {
     if (document.visibilityState === 'hidden') {
       hiddenAt = Date.now()
     } else if (hiddenAt !== null && Date.now() - hiddenAt > RESTART_AFTER_HIDDEN_MS) {
       hiddenAt = null
-      void listen()
+      listenAll()
     }
   }
 
-  void listen()
+  listenAll()
   document.addEventListener('visibilitychange', onVisibility)
   return () => {
+    stopped = true
     document.removeEventListener('visibilitychange', onVisibility)
+    timers.forEach(clearTimeout)
     unsubs.forEach((u) => u())
   }
 }

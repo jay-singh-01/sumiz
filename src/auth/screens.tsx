@@ -35,7 +35,7 @@ export function SignInScreen() {
         {t('rememberDevice')}
       </label>
       {error && (
-        <p role="alert" className="text-lg font-semibold text-red-700">
+        <p role="alert" className="text-lg font-semibold text-danger">
           ⚠️ {t('signInFailed')}
         </p>
       )}
@@ -112,7 +112,7 @@ export function JoinScreen({
   const { t, lang } = useI18n()
   return (
     <Screen title={t('joinTitle')} help={t('joinHelp')}>
-      <p className="rounded-2xl border-2 border-gold bg-white p-4 text-xl">
+      <p className="rounded-2xl border-2 border-gold bg-surface p-4 text-xl">
         {user.email} · {t(`role_${invite.role}`)}
       </p>
       <BigButton onClick={() => onJoined(joinShop(user, invite, lang))}>🤝 {t('join')}</BigButton>
@@ -147,7 +147,7 @@ export function SetPinScreen({ onPin }: { onPin: (pin: string) => void }) {
   return (
     <Screen title={first === null ? t('setPinTitle') : t('confirmPinTitle')} help={t('setPinHelp')}>
       {mismatch && (
-        <p role="alert" className="text-lg font-semibold text-red-700">
+        <p role="alert" className="text-lg font-semibold text-danger">
           ⚠️ {t('pinMismatch')}
         </p>
       )}
@@ -180,7 +180,7 @@ export function PinLockScreen({ member, onUnlock, onGiveUp }: { member: Member; 
   return (
     <Screen title={t('enterPinTitle')} help={t('welcome', { name: member.name })}>
       {attempts > 0 && (
-        <p role="alert" className="text-lg font-semibold text-red-700">
+        <p role="alert" className="text-lg font-semibold text-danger">
           ⚠️ {t('wrongPin', { n: MAX_PIN_ATTEMPTS - attempts })}
         </p>
       )}
@@ -189,7 +189,7 @@ export function PinLockScreen({ member, onUnlock, onGiveUp }: { member: Member; 
         {t('forgotPin')}
       </button>
       {showForgot && (
-        <div className="rounded-2xl border-2 border-gold bg-white p-4">
+        <div className="rounded-2xl border-2 border-gold bg-surface p-4">
           <p className="mb-3 text-lg">{t('forgotPinHelp')}</p>
           <BigButton
             variant="secondary"

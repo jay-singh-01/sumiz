@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Gota &amp; Dhaaga">
+  <defs>
+    <linearGradient id="gd-rani" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E0115F"/>
+      <stop offset="1" stop-color="#9E0D44"/>
+    </linearGradient>
+    <linearGradient id="gd-gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F3D27A"/>
+      <stop offset=".5" stop-color="#C9971C"/>
+      <stop offset="1" stop-color="#8A6408"/>
+    </linearGradient>
+    <path id="gd-arch" d="M136 448V240c0-36 14-52 32-62 2-28 24-46 48-48 8-22 24-32 40-50 16 18 32 28 40 50 24 2 46 20 48 48 18 10 32 26 32 62v208z"/>
+  </defs>
+  <!-- jharokha arch -->
+  <use href="#gd-arch" fill="url(#gd-rani)" stroke="url(#gd-gold)" stroke-width="14" stroke-linejoin="round"/>
+  <use href="#gd-arch" fill="none" stroke="#FFF4DE" stroke-width="3" opacity=".8" transform="translate(256 300) scale(.86) translate(-256 -300)"/>
+  <!-- bandhani dots -->
+  <g fill="#FFF4DE" opacity=".55">
+    <g transform="translate(184 400)"><circle r="5"/><circle cx="-11" r="3"/><circle cx="11" r="3"/><circle cy="-11" r="3"/><circle cy="11" r="3"/></g>
+    <g transform="translate(330 250)"><circle r="5"/><circle cx="-11" r="3"/><circle cx="11" r="3"/><circle cy="-11" r="3"/><circle cy="11" r="3"/></g>
+    <g transform="translate(196 220)"><circle r="4"/><circle cx="-9" r="2.5"/><circle cx="9" r="2.5"/><circle cy="-9" r="2.5"/><circle cy="9" r="2.5"/></g>
+  </g>
+  <!-- needle, thread and gota-patti leaf -->
+  <g transform="rotate(32 256 300)">
+    <path d="M256 180C246 180 246 200 248 214L253 418L256 446L259 418L264 214C266 200 266 180 256 180Z" fill="#FFF4DE" stroke="url(#gd-gold)" stroke-width="3"/>
+    <ellipse cx="256" cy="204" rx="3.5" ry="13" fill="#9E0D44"/>
+    <path d="M256 196C312 196 334 252 306 292C286 322 236 316 222 352" fill="none" stroke="#F59E0B" stroke-width="9" stroke-linecap="round"/>
+    <path d="M222 352C246 378 226 418 186 430C174 398 190 360 222 352Z" fill="url(#gd-gold)" stroke="#FFF4DE" stroke-width="2"/>
+    <path d="M220 358C210 382 200 404 188 424" fill="none" stroke="#FFF4DE" stroke-width="2.5" stroke-linecap="round"/>
+  </g>
+</svg>

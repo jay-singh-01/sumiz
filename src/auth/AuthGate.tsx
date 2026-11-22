@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth'
 import { SYNCED_COLLECTIONS } from '@/data/collections'
-import { reconcileOutbox } from '@/data/outbox'
+import { reconcileOutbox, watchLeftoverWrites } from '@/data/outbox'
 import { startDeltaSync } from '@/data/sync'
 import type { WriteCtx } from '@/data/write'
 import { useI18n } from '@/i18n'
@@ -103,6 +103,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!shopId || !member) return
     void navigator.storage?.persist?.()
+    watchLeftoverWrites(db)
     void reconcileOutbox(db)
     return startDeltaSync(shopId, SYNCED_COLLECTIONS, () => {})
   }, [shopId, member])

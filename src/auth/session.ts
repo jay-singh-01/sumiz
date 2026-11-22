@@ -6,9 +6,9 @@ import {
   signOut,
   type User,
 } from 'firebase/auth'
-import { collection, doc, getDoc, getDocFromCache, onSnapshot, writeBatch, type DocumentReference } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocFromCache, onSnapshot, waitForPendingWrites, writeBatch, type DocumentReference } from 'firebase/firestore'
 import { auth, db, googleProvider } from '@/lib/firebase'
-import { DEFAULT_SETTINGS, settingsSchema, shopSchema, userSchema, type Invite, type ShopUser } from '@/data/schemas'
+import { DEFAULT_SETTINGS, inviteSchema, settingsSchema, shopSchema, userSchema, type Invite, type ShopUser } from '@/data/schemas'
 import type { Language, Stored } from '@/data/types'
 import { commitTracked, createRecord, logEvent, stageCreate, updateRecord, type WriteCtx } from '@/data/write'
 import { hashPin } from './pin'
@@ -133,20 +133,51 @@ export function watchMember(
   onMember: (m: Member | null) => void,
   onRevoked: () => void,
 ): () => void {
-  return onSnapshot(
-    doc(db, 'shops', shopId, 'users', uid),
-    (snap) => onMember(snap.exists() ? ({ id: snap.id, ...snap.data({ serverTimestamps: 'estimate' }) } as Member) : null),
-    (err) => {
-      // Rules deny reads once this session is revoked or the user is removed.
-      if (err.code === 'permission-denied') onRevoked()
-      else console.error('Member listener failed', err)
-    },
-  )
+  const ref = doc(db, 'shops', shopId, 'users', uid)
+  let unsub = () => {}
+  let stopped = false
+
+  const subscribe = (attempt: number) => {
+    unsub = onSnapshot(
+      ref,
+      (snap) => onMember(snap.exists() ? ({ id: snap.id, ...snap.data({ serverTimestamps: 'estimate' }) } as Member) : null),
+      async (err) => {
+        if (err.code !== 'permission-denied') return console.error('Member listener failed', err)
+        // Denied can also mean "your new membership hasn't reached the server
+        // yet" (first run / just joined). Wait for our queued writes, then retry;
+        // only a denial with nothing pending means revoked or removed.
+        await waitForPendingWrites(db).catch(() => undefined)
+        if (stopped) return
+        if (attempt < 2) subscribe(attempt + 1)
+        else onRevoked()
+      },
+    )
+  }
+
+  subscribe(0)
+  return () => {
+    stopped = true
+    unsub()
+  }
 }
 
 export async function savePin(ctx: WriteCtx, me: Member, pin: string): Promise<void> {
   const { pinHash, pinSalt } = await hashPin(pin)
   updateRecord(ctx, 'users', userSchema, me, { pinHash, pinSalt }, { label: me.name, redactFields: ['pinHash', 'pinSalt'] })
+}
+
+/** Invite (or re-invite with a new role) someone by Gmail address. Managers only (rules). */
+export async function inviteMember(ctx: WriteCtx, email: string, role: Invite['role'], invitedName?: string): Promise<void> {
+  const id = email.trim().toLowerCase()
+  const data: Invite = { shopId: ctx.shopId, role, ...(invitedName ? { invitedName } : {}) }
+  const existing = await readDoc(doc(db, 'invites', id))
+  if (existing?.exists()) {
+    const current = { id, ...existing.data() } as Stored<Invite>
+    // Re-inviting also re-activates a withdrawn invite.
+    updateRecord(ctx, 'invites', inviteSchema, current, { ...data, isDeleted: false } as Partial<Invite>, { label: id })
+  } else {
+    createRecord(ctx, 'invites', inviteSchema, data, { id, label: id })
+  }
 }
 
 export function logLogin(ctx: WriteCtx): void {

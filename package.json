@@ -14,13 +14,23 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:rules": "firebase emulators:exec --only firestore \"vitest run --config vitest.rules.config.ts\"",
-    "ci": "npm run lint && npm run typecheck && npm test"
+    "ci": "npm run lint && npm run typecheck && npm test",
+    "icons": "pwa-assets-generator"
   },
   "dependencies": {
+    "@fontsource/mukta": "^5.3.0",
+    "@fontsource/rozha-one": "^5.3.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "firebase": "^13.4.0",
     "idb-keyval": "^6.3.0",
+    "lucide-react": "^1.77.0",
+    "motion": "^14.14.0",
+    "radix-ui": "^1.8.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "react-router": "^8.5.2",
+    "tailwind-merge": "^3.7.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -31,15 +41,18 @@
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@vite-pwa/assets-generator": "^2.0.0",
     "@vitejs/plugin-react": "^6.1.2",
     "@vitest/coverage-v8": "^5.1.1",
     "fake-indexeddb": "^6.2.8",
     "firebase-tools": "^15.37.0",
     "jsdom": "^31.0.1",
     "oxlint": "^1.90.0",
+    "playwright-core": "^1.65.1",
     "tailwindcss": "^4.3.5",
     "typescript": "~7.0.2",
     "vite": "^8.3.6",
+    "vite-plugin-pwa": "^2.0.0",
     "vitest": "^5.1.1"
   }
 }

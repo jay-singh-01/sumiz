@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Gota &amp; Dhaaga" fill="none" stroke="#000" stroke-linejoin="round" stroke-linecap="round">
+  <!-- Single-colour version for rubber stamps, print and PAID marks. Recolour via CSS filter or by editing #000. -->
+  <path d="M136 448V240c0-36 14-52 32-62 2-28 24-46 48-48 8-22 24-32 40-50 16 18 32 28 40 50 24 2 46 20 48 48 18 10 32 26 32 62v208z" stroke-width="14"/>
+  <path d="M136 448V240c0-36 14-52 32-62 2-28 24-46 48-48 8-22 24-32 40-50 16 18 32 28 40 50 24 2 46 20 48 48 18 10 32 26 32 62v208z" stroke-width="4" transform="translate(256 300) scale(.86) translate(-256 -300)"/>
+  <g transform="rotate(32 256 300)">
+    <path d="M256 180C246 180 246 200 248 214L253 418L256 446L259 418L264 214C266 200 266 180 256 180Z" fill="#000" stroke="none"/>
+    <path d="M256 196C312 196 334 252 306 292C286 322 236 316 222 352" stroke-width="9"/>
+    <path d="M222 352C246 378 226 418 186 430C174 398 190 360 222 352Z" fill="#000" stroke="none"/>
+  </g>
+</svg>

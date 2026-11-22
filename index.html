@@ -1,10 +1,22 @@
 <!doctype html>
-<html lang="en">
+<html lang="hi">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>गोटा & धागा</title>
+    <meta name="description" content="सिलाई की दुकान का हिसाब — ग्राहक, नाप, ऑर्डर, बिल और बकाया" />
+    <meta name="theme-color" content="#d6125b" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>sumiz</title>
+    <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
+    <script>
+      // Apply per-device display prefs before first paint (no flash).
+      try {
+        var p = JSON.parse(localStorage.getItem('gd.display') || '{}')
+        if (p.largeText) document.documentElement.classList.add('text-large')
+        if (p.theme === 'dark') document.documentElement.dataset.theme = 'dark'
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

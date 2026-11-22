@@ -1,53 +1,32 @@
-import { useState, useSyncExternalStore } from 'react'
-import { AuthGate, useSession } from '@/auth/AuthGate'
-import { BigButton, Screen } from '@/auth/ui'
-import { getConflictTick, getPendingCount, subscribeOutbox } from '@/data/outbox'
-import { LanguageProvider, useI18n } from '@/i18n'
+import { createBrowserRouter, Navigate, RouterProvider } from 'react-router'
+import { AuthGate } from '@/auth/AuthGate'
+import { AppShell } from '@/app/AppShell'
+import { ComingSoon } from '@/app/ComingSoon'
+import { HomePage } from '@/app/HomePage'
+import { LanguageProvider } from '@/i18n'
 
-// Phase 2 placeholder home: exercises the session (lock, sign out, sign out
-// everywhere). Replaced by the real app shell and home screen in Phase 3.
-function Home() {
-  const { t } = useI18n()
-  const { member, lock, signOut, signOutAll } = useSession()
-  const pending = useSyncExternalStore(subscribeOutbox, getPendingCount)
-  useSyncExternalStore(subscribeOutbox, getConflictTick)
-  const [confirming, setConfirming] = useState(false)
-
-  return (
-    <Screen title={t('welcome', { name: member.name })} help={`${t(`role_${member.role}`)} · ${t('phase2Placeholder')}`}>
-      <p className="text-base text-ink/70 tabular-nums">sync: {pending === 0 ? '✅' : `🔄 ${pending}`}</p>
-      <BigButton variant="secondary" onClick={lock}>
-        🔒 {t('lockNow')}
-      </BigButton>
-      <BigButton variant="secondary" onClick={() => void signOut()}>
-        🚪 {t('signOut')}
-      </BigButton>
-      {!confirming ? (
-        <BigButton variant="danger" onClick={() => setConfirming(true)}>
-          📵 {t('signOutAll')}
-        </BigButton>
-      ) : (
-        <div className="rounded-2xl border-2 border-red-700 bg-white p-4">
-          <p className="mb-3 text-lg">{t('signOutAllConfirm')}</p>
-          <div className="grid grid-cols-2 gap-3">
-            <BigButton variant="danger" onClick={() => void signOutAll()}>
-              {t('yes')}
-            </BigButton>
-            <BigButton variant="secondary" onClick={() => setConfirming(false)}>
-              {t('no')}
-            </BigButton>
-          </div>
-        </div>
-      )}
-    </Screen>
-  )
-}
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <AppShell />,
+    children: [
+      { index: true, element: <HomePage /> },
+      { path: 'customers/*', element: <ComingSoon title="nav_customers" phase={4} /> },
+      { path: 'orders/*', element: <ComingSoon title="nav_orders" phase={5} /> },
+      { path: 'payments/*', element: <ComingSoon title="home_payment" phase={6} /> },
+      { path: 'summary/*', element: <ComingSoon title="nav_summary" phase={8} /> },
+      { path: 'settings', lazy: async () => ({ Component: (await import('@/app/SettingsPage')).SettingsPage }) },
+      { path: 'design', lazy: async () => ({ Component: (await import('@/app/DesignPage')).DesignPage }) },
+      { path: '*', element: <Navigate to="/" replace /> },
+    ],
+  },
+])
 
 export default function App() {
   return (
     <LanguageProvider>
       <AuthGate>
-        <Home />
+        <RouterProvider router={router} />
       </AuthGate>
     </LanguageProvider>
   )
