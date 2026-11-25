@@ -29,7 +29,7 @@ If any screen asks for a card, stop: you've wandered into a paid feature.
 
 ## 3. Turn on Google Sign-In
 
-1. Left sidebar → **Build → Authentication → Get started**.
+1. Left sidebar → **Product categories → Security → Authentication → Get started**. (Older consoles call this section **Build**. If you can't find it, type "Authentication" in **Search for products** at the top left.)
 2. **Sign-in method** tab → **Google** → **Enable**.
 3. Choose a **project support email** (your Gmail) → **Save**.
 4. Don't enable Phone sign-in (SMS is billed).
@@ -37,7 +37,7 @@ If any screen asks for a card, stop: you've wandered into a paid feature.
 
 ## 4. Create the Firestore database
 
-1. Left sidebar → **Build → Firestore Database → Create database**.
+1. Left sidebar → **Product categories → Databases & Storage → Firestore → Create database**. (Older consoles: **Build → Firestore Database**. Or search "Firestore".)
 2. Database ID: keep **`(default)`**. Only the default database gets the free quota.
 3. **Location: `asia-south1` (Mumbai)**. ⚠️ This is permanent and can't be changed later.
 4. Start in **production mode** (everything locked). Our own rules get deployed in the next step.
