@@ -272,3 +272,18 @@ describe('bills validation', () => {
     await assertFails(create({ ...bill, revision: 0 }))
   })
 })
+
+describe('reminders validation', () => {
+  const create = (data: Record<string, unknown>) =>
+    auditedWrite(as(env, 'helper'), { uid: 'helper', coll: 'reminders', id: 'r1', version: 1, data: { ...data, ...createMeta('helper') }, action: 'create' })
+  const r = { customerId: 'c1', type: 'paymentDue', message: 'नमस्ते', channel: 'whatsapp' }
+
+  it('logs a valid reminder', async () => {
+    await assertSucceeds(create(r))
+  })
+  it('rejects unknown types, channels or empty messages', async () => {
+    await assertFails(create({ ...r, type: 'spam' }))
+    await assertFails(create({ ...r, channel: 'sms' }))
+    await assertFails(create({ ...r, message: '' }))
+  })
+})

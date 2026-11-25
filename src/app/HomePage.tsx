@@ -1,5 +1,5 @@
 import { motion } from 'motion/react'
-import { BarChart3, CalendarCheck, Clock, IndianRupee, Plus, Users, Wallet } from 'lucide-react'
+import { BarChart3, BellRing, CalendarCheck, Clock, IndianRupee, Plus, Users, Wallet } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useSession } from '@/auth/AuthGate'
@@ -15,6 +15,7 @@ import { itemsSummary, StatusChip } from '@/features/orders/components'
 import { byUrgency, isDueToday, isOverdue } from '@/features/orders/logic'
 import type { Order } from '@/features/orders/schema'
 import { useLedger } from '@/features/bills/useLedger'
+import { daysBetween, oldestDueDate } from '@/features/bills/ledger'
 import { toISODate } from '@/lib/dates'
 
 function BigTile({ to, label, icon, className, delay }: { to: string; label: string; icon: ReactNode; className: string; delay: number }) {
@@ -80,8 +81,19 @@ export function HomePage() {
   const [now] = useState(() => new Date())
   const today = new Intl.DateTimeFormat(lang === 'hi' ? 'hi-IN' : 'en-IN', { weekday: 'long', day: 'numeric', month: 'long' }).format(now)
   const orders = useCollection<Order>(shopId, 'orders')
-  const { dues, debtors } = useLedger()
   const todayIso = toISODate(now)
+  const { dues, debtors, bills, payments, balances } = useLedger()
+  // People worth reminding today: dues older than 15 days, or clothes ready for pickup.
+  const toRemind = useMemo(() => {
+    const ids = new Set<string>()
+    for (const [id, bal] of balances) {
+      if (bal <= 0) continue
+      const since = oldestDueDate(id, bills ?? [], payments ?? [])
+      if (since && daysBetween(since, todayIso) >= 15) ids.add(id)
+    }
+    for (const o of orders ?? []) if (o.status === 'ready') ids.add(o.customerId)
+    return ids.size
+  }, [balances, bills, payments, orders, todayIso])
   const dueToday = useMemo(() => (orders ?? []).filter((o) => isDueToday(o, todayIso)).sort(byUrgency), [orders, todayIso])
   const overdue = useMemo(() => (orders ?? []).filter((o) => isOverdue(o, todayIso)).sort(byUrgency), [orders, todayIso])
 
@@ -98,6 +110,15 @@ export function HomePage() {
         <BigTile to="/payments/new" label={t('home_payment')} icon={<Wallet />} className="bg-emerald-deep text-on-emerald" delay={0.1} />
         <BigTile to="/summary" label={t('home_summary')} icon={<BarChart3 />} className="bg-marigold text-on-marigold" delay={0.15} />
       </div>
+
+      {toRemind > 0 && (
+        <Link
+          to="/reminders"
+          className="flex min-h-14 items-center gap-3 rounded-2xl border-2 border-emerald-deep bg-emerald-deep/10 px-4 py-3 text-lg font-semibold text-emerald-deep"
+        >
+          <BellRing className="size-6" /> {t('rem_homeCard', { n: toRemind })} →
+        </Link>
+      )}
 
       <div className="grid gap-4 md:grid-cols-3">
         <ArchCard title={`${t('home_todayDeliveries')}${dueToday.length ? ` (${dueToday.length})` : ''}`} icon={<CalendarCheck />}>

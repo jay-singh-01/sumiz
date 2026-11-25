@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { allBalances, billPaid, customerBalance, daysBetween, ledgerEntries, totalDues, type LedgerBill, type LedgerPayment } from './ledger'
+import { allBalances, billPaid, customerBalance, daysBetween, ledgerEntries, oldestDueDate, totalDues, type LedgerBill, type LedgerPayment } from './ledger'
 
 const bill = (id: string, customerId: string, total: number, billDate: string, orderId: string | null = null, extra: Partial<LedgerBill> = {}): LedgerBill => ({
   id,
@@ -91,5 +91,19 @@ describe('daysBetween', () => {
   it('counts calendar days', () => {
     expect(daysBetween('2026-11-01', '2026-11-25')).toBe(24)
     expect(daysBetween('2026-02-28', '2026-03-01')).toBe(1)
+  })
+})
+
+describe('oldestDueDate (FIFO)', () => {
+
+  it('applies payments to the oldest bills first', () => {
+    const bills = [bill('1', 'r', 1000, '2026-08-01'), bill('2', 'r', 500, '2026-10-01'), bill('3', 'r', 700, '2026-11-01')]
+    expect(oldestDueDate('r', bills, [])).toBe('2026-08-01')
+    expect(oldestDueDate('r', bills, [pay('a', 'r', 1000, '2026-11-20')])).toBe('2026-10-01')
+    expect(oldestDueDate('r', bills, [pay('a', 'r', 1200, '2026-11-20')])).toBe('2026-10-01')
+    expect(oldestDueDate('r', bills, [pay('a', 'r', 2200, '2026-11-20')])).toBeNull()
+  })
+  it('counts opening balances as the oldest debt', () => {
+    expect(oldestDueDate('k', [bill('1', 'k', 300, '2026-11-01')], [pay('o', 'k', 900, '2026-04-01', { kind: 'opening' })])).toBe('2026-04-01')
   })
 })

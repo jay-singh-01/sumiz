@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarDays, CheckCircle2, MessageCircle, Pencil, Phone, Plus, Receipt, RotateCcw, XCircle } from 'lucide-react'
+import { ArrowRight, BellRing, CalendarDays, CheckCircle2, MessageCircle, Pencil, Phone, Plus, Receipt, RotateCcw, XCircle } from 'lucide-react'
 import { Dialog as D } from 'radix-ui'
 import { useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
@@ -11,9 +11,11 @@ import { PageHeader } from '@/components/ui/page'
 import { toast } from '@/components/ui/toast'
 import { useCollection } from '@/data/hooks'
 import { MarigoldBurst } from '@/design/motifs'
+import { billPaid } from '@/features/bills/ledger'
 import { useLedger } from '@/features/bills/useLedger'
 import type { GarmentType } from '@/features/master/schema'
 import type { Payment } from '@/features/payments/schema'
+import { useReminders } from '@/features/reminders/useReminders'
 import { useI18n } from '@/i18n'
 import { format } from '@/i18n/format'
 import { strings } from '@/i18n/strings'
@@ -41,6 +43,7 @@ export function OrderDetailPage() {
 
   const order = orders?.find((o) => o.id === id)
   const { bills } = useLedger()
+  const reminders = useReminders()
   const bill = bills?.find((b) => b.orderId === id)
   const paid = useMemo(() => (payments ?? []).filter((p) => p.orderId === id).reduce((s, p) => s + p.amount, 0), [payments, id])
   if (orders === undefined) return null
@@ -50,6 +53,23 @@ export function OrderDetailPage() {
   const next = nextStatus(order.status)
   const created = params.get('created') === '1'
   const today = todayISO()
+
+  const remind = (type: 'ready' | 'trial') => {
+    // With a bill, count everything paid against it; before billing, just the advance.
+    const due = Math.max(0, bill ? bill.total - billPaid(bill, payments ?? []) : total - paid)
+    const ok = reminders.send({
+      customerId: order.customerId,
+      customerName: order.customerName,
+      phone: order.customerPhone,
+      type,
+      amount: Math.round(due * 100) / 100,
+      orderNumber: order.orderNumber,
+      date: order.trialDate ? formatDate(fromISODate(order.trialDate)) : undefined,
+      orderId: order.id,
+      billId: bill?.id ?? null,
+    })
+    if (!ok) toast({ message: `⚠️ ${t('rem_noPhone')}` })
+  }
 
   const move = (status: OrderStatus) => {
     if (status === order.status) return
@@ -144,6 +164,17 @@ export function OrderDetailPage() {
           {t('ord_changeStatus')}
         </Button>
       </Card>
+
+      {order.status === 'ready' && (
+        <Button variant="success" block onClick={() => remind('ready')}>
+          <BellRing /> {t('rem_readyMsg')}
+        </Button>
+      )}
+      {order.trialDate && ['received', 'cutting', 'stitching', 'trial'].includes(order.status) && order.trialDate >= today && (
+        <Button variant="secondary" block onClick={() => remind('trial')}>
+          <BellRing /> {t('rem_trialMsg')} · {formatDate(fromISODate(order.trialDate))}
+        </Button>
+      )}
 
       {order.status !== 'cancelled' && (
         <Button asChild variant={bill ? 'secondary' : 'primary'} block>

@@ -1,5 +1,6 @@
 import type { Timestamp } from 'firebase/firestore'
 import { z } from 'zod'
+import { templatesSchema } from '@/features/reminders/templates'
 
 // Data schemas exclude Meta fields: the write helper adds those. Unknown keys
 // (including Meta from a stored doc) are stripped by Zod on parse.
@@ -47,6 +48,8 @@ export const settingsSchema = z.object({
   billFooter: z.string().trim().max(300),
   orderPrefix: z.string().trim().min(1).max(6),
   language: languageSchema,
+  /** WhatsApp reminder templates; defaults apply until she edits them. */
+  templates: templatesSchema.optional(),
 })
 export type Settings = z.infer<typeof settingsSchema>
 

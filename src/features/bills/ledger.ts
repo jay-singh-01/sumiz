@@ -111,3 +111,30 @@ export function daysBetween(fromISO: string, toISO: string): number {
   const [y2, m2, d2] = toISO.split('-').map(Number)
   return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86_400_000)
 }
+
+/**
+ * Date of the oldest money still owed, applying the customer's payments to
+ * their oldest bills first (FIFO). null when nothing is owed. Used for dues
+ * ageing ("31–60 days") and payment reminders.
+ */
+export function oldestDueDate(customerId: string, bills: LedgerBill[], payments: LedgerPayment[]): string | null {
+  const debits: { date: string; paise: number }[] = [
+    ...live(bills)
+      .filter((b) => b.customerId === customerId)
+      .map((b) => ({ date: b.billDate, paise: p(b.total) })),
+    ...live(payments)
+      .filter((x) => x.customerId === customerId && x.kind === 'opening')
+      .map((x) => ({ date: x.date, paise: p(x.amount) })),
+  ].sort((a, b) => a.date.localeCompare(b.date))
+  let credit = live(payments)
+    .filter((x) => x.customerId === customerId && x.kind !== 'opening')
+    .reduce((s, x) => s + p(x.amount), 0)
+  for (const d of debits) {
+    if (credit >= d.paise) {
+      credit -= d.paise
+      continue
+    }
+    return d.date
+  }
+  return null
+}

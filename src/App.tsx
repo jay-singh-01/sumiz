@@ -6,6 +6,7 @@ import { HomePage } from '@/app/HomePage'
 import { BillEditorPage } from '@/features/bills/BillEditor'
 import { BillPage } from '@/features/bills/BillPage'
 import { PaymentPage } from '@/features/payments/PaymentPage'
+import { RemindersPage } from '@/features/reminders/RemindersPage'
 import { CustomerFormPage } from '@/features/customers/CustomerForm'
 import { CustomerProfilePage } from '@/features/customers/CustomerProfile'
 import { CustomersPage } from '@/features/customers/CustomersPage'
@@ -36,6 +37,7 @@ const router = createBrowserRouter([
       { path: 'bills/new', element: <BillEditorPage /> },
       { path: 'bills/:id', element: <BillPage /> },
       { path: 'bills/:id/edit', element: <BillEditorPage /> },
+      { path: 'reminders', element: <RemindersPage /> },
       { path: 'summary/*', element: <ComingSoon title="nav_summary" phase={8} /> },
       { path: 'master', lazy: async () => ({ Component: (await master()).MasterDataPage }) },
       { path: 'master/garments/:id', lazy: async () => ({ Component: (await master()).GarmentEditorPage }) },

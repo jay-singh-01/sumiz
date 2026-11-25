@@ -1,4 +1,4 @@
-import { FileText, Loader2, Receipt, Trash2, Wallet } from 'lucide-react'
+import { BellRing, FileText, Loader2, Receipt, Trash2, Wallet } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import logoUrl from '@/assets/logo.svg'
@@ -12,6 +12,7 @@ import type { Stored } from '@/data/types'
 import { restoreRecord, softDeleteRecord } from '@/data/write'
 import type { Customer } from '@/features/customers/schema'
 import type { Payment } from '@/features/payments/schema'
+import { useReminders } from '@/features/reminders/useReminders'
 import { useI18n } from '@/i18n'
 import type { StringKey } from '@/i18n/strings'
 import { cn } from '@/lib/cn'
@@ -51,6 +52,7 @@ export function LedgerTab({ customer }: { customer: Stored<Customer> }) {
   const [busy, setBusy] = useState(false)
   const [toDelete, setToDelete] = useState<Stored<Payment> | null>(null)
   const statementRef = useRef<HTMLDivElement>(null)
+  const reminders = useReminders()
   const [today] = useState(() => new Date())
 
   const mineBills = useMemo(
@@ -96,6 +98,19 @@ export function LedgerTab({ customer }: { customer: Stored<Customer> }) {
         <span className="text-lg text-ink-muted">{balance >= 0 ? t('led_balance') : t('led_credit')}</span>
         <BalanceText balance={balance} className="text-4xl" />
       </Card>
+
+      {balance > 0 && (
+        <Button
+          variant="secondary"
+          block
+          onClick={() => {
+            if (!reminders.send({ customerId: customer.id, customerName: customer.name, phone: customer.phone, type: 'paymentDue', amount: balance }))
+              toast({ message: `⚠️ ${t('rem_noPhone')}` })
+          }}
+        >
+          <BellRing /> {t('rem_payment')}
+        </Button>
+      )}
 
       <div className="grid grid-cols-2 gap-2">
         <Button asChild variant="success">

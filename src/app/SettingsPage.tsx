@@ -16,6 +16,7 @@ import { dismissConflict, getConflictTick, listConflicts, subscribeOutbox, type 
 import { settingsSchema, type Settings, type ShopUser } from '@/data/schemas'
 import type { Stored } from '@/data/types'
 import { updateRecord } from '@/data/write'
+import { TemplatesEditor } from '@/features/reminders/TemplatesEditor'
 import { useI18n } from '@/i18n'
 import { useDisplayPrefs } from './display'
 import { useIsManager, useSettings } from './useShop'
@@ -280,6 +281,7 @@ export function SettingsPage() {
       <h1 className="text-3xl">{t('settingsTitle')}</h1>
       <Conflicts />
       <ShopDetails />
+      <TemplatesEditor />
       <Display />
       {isManager && (
         <Button asChild variant="secondary" block>
