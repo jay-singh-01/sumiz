@@ -3,6 +3,7 @@ import {
   doc,
   serverTimestamp,
   writeBatch,
+  type DocumentData,
   type DocumentReference,
   type WriteBatch,
 } from 'firebase/firestore'
@@ -117,9 +118,15 @@ export function commitTracked(batch: WriteBatch, ctx: WriteCtx, info: StagedWrit
   return committed
 }
 
+/** A WriteBatch or a Transaction: anything we can stage writes into. */
+export interface Stager {
+  set(ref: DocumentReference, data: DocumentData): unknown
+  update(ref: DocumentReference, data: DocumentData): unknown
+}
+
 /** Adds a create (record + audit entry) to `batch` without committing. */
 export function stageCreate<T extends Record<string, unknown>>(
-  batch: WriteBatch,
+  batch: Stager,
   ctx: WriteCtx,
   coll: AuditedCollection,
   schema: ZodType<T>,
@@ -173,6 +180,28 @@ function dataOf<T>(current: Stored<T>): Record<string, unknown> {
   return rest
 }
 
+/**
+ * Adds a versioned, audited update to `batch` without committing.
+ * Returns null when the patch changes nothing.
+ */
+export function stageUpdate<T extends Record<string, unknown>>(
+  batch: Stager,
+  ctx: WriteCtx,
+  coll: AuditedCollection,
+  schema: ZodType<T>,
+  current: Stored<T>,
+  patch: Partial<T>,
+  opts: WriteOpts = {},
+): StagedWrite | null {
+  const before = dataOf(current)
+  // Validate the whole record as it will look after the patch.
+  schema.parse({ ...before, ...patch })
+  const changes = diffFields(before, patch as Record<string, unknown>)
+  const st = withServerTime(opts.serverTimeFields)
+  if (Object.keys(changes).length === 0 && Object.keys(st.values).length === 0) return null
+  return stageVersioned(batch, ctx, coll, current, 'update', { ...patch, ...st.values }, redactChanges({ ...changes, ...st.changes }, opts.redactFields), opts)
+}
+
 export function updateRecord<T extends Record<string, unknown>>(
   ctx: WriteCtx,
   coll: AuditedCollection,
@@ -181,23 +210,10 @@ export function updateRecord<T extends Record<string, unknown>>(
   patch: Partial<T>,
   opts: WriteOpts = {},
 ): WriteResult {
-  const before = dataOf(current)
-  // Validate the whole record as it will look after the patch.
-  schema.parse({ ...before, ...patch })
-  const changes = diffFields(before, patch as Record<string, unknown>)
-  const st = withServerTime(opts.serverTimeFields)
-  if (Object.keys(changes).length === 0 && Object.keys(st.values).length === 0) {
-    return { id: current.id, committed: Promise.resolve() }
-  }
-  return versionedUpdate(
-    ctx,
-    coll,
-    current,
-    'update',
-    { ...patch, ...st.values },
-    redactChanges({ ...changes, ...st.changes }, opts.redactFields),
-    opts,
-  )
+  const batch = writeBatch(db)
+  const staged = stageUpdate(batch, ctx, coll, schema, current, patch, opts)
+  if (!staged) return { id: current.id, committed: Promise.resolve() }
+  return { id: current.id, committed: commitTracked(batch, ctx, staged) }
 }
 
 export function softDeleteRecord<T>(ctx: WriteCtx, coll: AuditedCollection, current: Stored<T>, opts: WriteOpts = {}): WriteResult {
@@ -216,6 +232,23 @@ export function restoreRecord<T>(ctx: WriteCtx, coll: AuditedCollection, current
   return versionedUpdate(ctx, coll, current, 'restore', { isDeleted: false }, { isDeleted: { from: true, to: false } }, opts)
 }
 
+function stageVersioned<T>(
+  batch: Stager,
+  ctx: WriteCtx,
+  coll: AuditedCollection,
+  current: Stored<T>,
+  action: AuditAction,
+  fields: Record<string, unknown>,
+  changes: Record<string, FieldChange>,
+  opts: WriteOpts,
+): StagedWrite {
+  const version = current.version + 1
+  const aid = auditId(coll, current.id, version)
+  batch.update(ref(ctx, coll, current.id), { ...fields, version, updatedBy: ctx.uid, updatedAt: serverTimestamp() })
+  batch.set(auditRef(ctx, aid), auditBody(ctx, action, coll, current.id, { label: opts.label, changes }))
+  return { coll, id: current.id, action, auditDocId: aid, data: redactData(fields, opts.redactFields) }
+}
+
 function versionedUpdate<T>(
   ctx: WriteCtx,
   coll: AuditedCollection,
@@ -225,19 +258,14 @@ function versionedUpdate<T>(
   changes: Record<string, FieldChange>,
   opts: WriteOpts,
 ): WriteResult {
-  const version = current.version + 1
   const batch = writeBatch(db)
-  const aid = auditId(coll, current.id, version)
-  batch.update(ref(ctx, coll, current.id), { ...fields, version, updatedBy: ctx.uid, updatedAt: serverTimestamp() })
-  batch.set(auditRef(ctx, aid), auditBody(ctx, action, coll, current.id, { label: opts.label, changes }))
-  const committed = commitTracked(batch, ctx, {
-    coll,
-    id: current.id,
-    action,
-    auditDocId: aid,
-    data: redactData(fields, opts.redactFields),
-  })
-  return { id: current.id, committed }
+  const staged = stageVersioned(batch, ctx, coll, current, action, fields, changes, opts)
+  return { id: current.id, committed: commitTracked(batch, ctx, staged) }
+}
+
+/** The ref an audited record lives at (for transactions that read before writing). */
+export function recordRef(ctx: WriteCtx, coll: AuditedCollection, id: string): DocumentReference {
+  return ref(ctx, coll, id)
 }
 
 /** Non-record events: login, export, backup, sign-out-all. */

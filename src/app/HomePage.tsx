@@ -1,6 +1,6 @@
 import { motion } from 'motion/react'
 import { BarChart3, CalendarCheck, Clock, IndianRupee, Plus, Users, Wallet } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useSession } from '@/auth/AuthGate'
 import { ArchCard } from '@/components/ui/card'
@@ -9,6 +9,12 @@ import { useI18n } from '@/i18n'
 import { cn } from '@/lib/cn'
 import { formatINR } from '@/lib/format'
 import { haptic } from '@/lib/haptics'
+import { useCollection } from '@/data/hooks'
+import type { Stored } from '@/data/types'
+import { itemsSummary, StatusChip } from '@/features/orders/components'
+import { byUrgency, isDueToday, isOverdue } from '@/features/orders/logic'
+import type { Order } from '@/features/orders/schema'
+import { toISODate } from '@/lib/dates'
 
 function BigTile({ to, label, icon, className, delay }: { to: string; label: string; icon: ReactNode; className: string; delay: number }) {
   return (
@@ -39,11 +45,43 @@ function Empty({ art, text }: { art: ReactNode; text: string }) {
   )
 }
 
+/** Up to 5 orders as tappable rows, then "+N more" to the orders list. */
+function OrderMiniList({ orders }: { orders: Stored<Order>[] }) {
+  const { t } = useI18n()
+  return (
+    <ul className="flex flex-col gap-2">
+      {orders.slice(0, 5).map((o) => (
+        <li key={o.id}>
+          <Link to={`/orders/${o.id}`} className="flex items-center gap-2 rounded-xl bg-surface-2 px-3 py-2 active:bg-line">
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-lg font-semibold">
+                {o.urgent && '🔥 '}
+                {o.customerName}
+              </span>
+              <span className="block truncate text-ink-muted">{itemsSummary(o, 2)}</span>
+            </span>
+            <StatusChip status={o.status} />
+          </Link>
+        </li>
+      ))}
+      {orders.length > 5 && (
+        <Link to="/orders" className="min-h-12 px-1 font-semibold text-indigo-royal underline">
+          {t('ord_more', { n: orders.length - 5 })}
+        </Link>
+      )}
+    </ul>
+  )
+}
+
 export function HomePage() {
   const { t, lang } = useI18n()
-  const { member } = useSession()
+  const { member, shopId } = useSession()
   const [now] = useState(() => new Date())
   const today = new Intl.DateTimeFormat(lang === 'hi' ? 'hi-IN' : 'en-IN', { weekday: 'long', day: 'numeric', month: 'long' }).format(now)
+  const orders = useCollection<Order>(shopId, 'orders')
+  const todayIso = toISODate(now)
+  const dueToday = useMemo(() => (orders ?? []).filter((o) => isDueToday(o, todayIso)).sort(byUrgency), [orders, todayIso])
+  const overdue = useMemo(() => (orders ?? []).filter((o) => isOverdue(o, todayIso)).sort(byUrgency), [orders, todayIso])
 
   return (
     <div className="flex flex-col gap-6">
@@ -59,14 +97,26 @@ export function HomePage() {
         <BigTile to="/summary" label={t('home_summary')} icon={<BarChart3 />} className="bg-marigold text-on-marigold" delay={0.15} />
       </div>
 
-      {/* Filled with real data in Phases 5–6. */}
       <div className="grid gap-4 md:grid-cols-3">
-        <ArchCard title={t('home_todayDeliveries')} icon={<CalendarCheck />}>
-          <Empty art={<Elephant className="h-14 w-20 text-indigo-royal/80" />} text={t('empty_deliveries')} />
+        <ArchCard title={`${t('home_todayDeliveries')}${dueToday.length ? ` (${dueToday.length})` : ''}`} icon={<CalendarCheck />}>
+          {dueToday.length === 0 ? (
+            <Empty art={<Elephant className="h-14 w-20 text-indigo-royal/80" />} text={t('empty_deliveries')} />
+          ) : (
+            <OrderMiniList orders={dueToday} />
+          )}
         </ArchCard>
-        <ArchCard title={t('home_overdue')} icon={<Clock />}>
-          <Empty art={<Paisley className="h-14 w-11 text-gold" />} text={t('empty_overdue')} />
+        <ArchCard
+          title={`${t('home_overdue')}${overdue.length ? ` (${overdue.length})` : ''}`}
+          icon={<Clock />}
+          className={overdue.length ? 'border-2 border-danger/60' : ''}
+        >
+          {overdue.length === 0 ? (
+            <Empty art={<Paisley className="h-14 w-11 text-gold" />} text={t('empty_overdue')} />
+          ) : (
+            <OrderMiniList orders={overdue} />
+          )}
         </ArchCard>
+        {/* Dues are derived from bills − payments in Phase 6. */}
         <ArchCard title={t('home_dues')} icon={<IndianRupee />}>
           <div className="flex items-center gap-4">
             <PeacockFeather className="h-16 w-8 shrink-0" />

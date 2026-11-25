@@ -137,11 +137,35 @@ service cloud.firestore {
         && d.active is bool;
     }
 
+    function validOrder(d) {
+      return d.orderNumber is string && d.orderNumber.size() > 0
+        && d.customerId is string && d.customerId.size() > 0
+        && d.items is list && d.items.size() >= 1 && d.items.size() <= 50
+        && d.status in ['received', 'cutting', 'stitching', 'trial', 'ready', 'delivered', 'cancelled']
+        && d.statusHistory is list
+        && d.deliveryDate is string && d.orderDate is string;
+    }
+
+    function validPayment(d) {
+      return d.customerId is string && d.customerId.size() > 0
+        && d.amount is number && d.amount > 0
+        && d.mode in ['cash', 'upi', 'other']
+        && d.kind in ['advance', 'payment', 'opening']
+        && d.date is string;
+    }
+
+    function validCounter(d) {
+      return d.seq is int && d.seq >= 0 && d.letter is string && d.fy is string;
+    }
+
     function validData(coll, d) {
       return coll == 'customers' ? validCustomer(d)
         : coll == 'measurements' ? validMeasurement(d)
         : coll == 'garmentTypes' ? validGarmentType(d)
         : coll == 'addOns' ? validAddOn(d)
+        : coll == 'orders' ? validOrder(d)
+        : coll == 'payments' ? validPayment(d)
+        : coll == 'counters' ? validCounter(d)
         : true;
     }
 

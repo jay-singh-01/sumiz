@@ -226,3 +226,34 @@ describe('field validation', () => {
     )
   })
 })
+
+describe('orders, payments and counters validation', () => {
+  const create = (coll: string, data: Record<string, unknown>) =>
+    auditedWrite(as(env, 'helper'), { uid: 'helper', coll, id: 'x1', version: 1, data: { ...data, ...createMeta('helper') }, action: 'create' })
+  const order = {
+    orderNumber: 'GD/26-27/A001', customerId: 'c1', items: [{ garmentTypeId: 'g1', qty: 1, rate: 300 }],
+    status: 'received', statusHistory: [], orderDate: '2026-11-25', deliveryDate: '2026-12-01',
+  }
+
+  it('accepts a valid order from a helper', async () => {
+    await assertSucceeds(create('orders', order))
+  })
+
+  it('rejects an order with no items or an unknown status', async () => {
+    await assertFails(create('orders', { ...order, items: [] }))
+    await assertFails(create('orders', { ...order, status: 'lost' }))
+  })
+
+  it('rejects zero or negative payments and unknown modes', async () => {
+    const p = { customerId: 'c1', amount: 500, mode: 'upi', kind: 'advance', date: '2026-11-25' }
+    await assertSucceeds(create('payments', p))
+    await assertFails(create('payments', { ...p, amount: 0 }))
+    await assertFails(create('payments', { ...p, amount: -100 }))
+    await assertFails(create('payments', { ...p, mode: 'cheque-bounce' }))
+  })
+
+  it('requires an integer counter sequence', async () => {
+    await assertSucceeds(create('counters', { letter: 'A', fy: '26-27', seq: 0 }))
+    await assertFails(create('counters', { letter: 'A', fy: '26-27', seq: 1.5 }))
+  })
+})

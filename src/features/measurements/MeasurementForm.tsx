@@ -13,6 +13,7 @@ import { createRecord, softDeleteRecord } from '@/data/write'
 import type { Customer } from '@/features/customers/schema'
 import type { GarmentType } from '@/features/master/schema'
 import { useI18n } from '@/i18n'
+import { cn } from '@/lib/cn'
 import { agoLabel, toISODate } from '@/lib/dates'
 import { useDraft } from '@/lib/useDraft'
 import { measurementSchema, type Measurement } from './schema'
@@ -138,7 +139,7 @@ function MeasurementForm({ customer, garment, previous }: { customer: Stored<Cus
               </span>
               <div className="relative">
                 <input
-                  className={`${inputClass} money pr-14 text-2xl`}
+                  className={cn(inputClass, "money pr-14 text-2xl")}
                   inputMode={f.unit === 'text' ? 'text' : 'decimal'}
                   value={m.values[f.key] ?? ''}
                   onChange={(e) => setValue(f.key, e.target.value)}

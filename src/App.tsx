@@ -7,6 +7,9 @@ import { CustomerFormPage } from '@/features/customers/CustomerForm'
 import { CustomerProfilePage } from '@/features/customers/CustomerProfile'
 import { CustomersPage } from '@/features/customers/CustomersPage'
 import { MeasurementPage } from '@/features/measurements/MeasurementForm'
+import { OrderDetailPage } from '@/features/orders/OrderDetail'
+import { OrdersPage } from '@/features/orders/OrdersPage'
+import { OrderWizardPage } from '@/features/orders/OrderWizard'
 import { LanguageProvider } from '@/i18n'
 
 const master = () => import('@/features/master/MasterDataPage')
@@ -22,7 +25,10 @@ const router = createBrowserRouter([
       { path: 'customers/:id', element: <CustomerProfilePage /> },
       { path: 'customers/:id/edit', element: <CustomerFormPage /> },
       { path: 'customers/:id/measure', element: <MeasurementPage /> },
-      { path: 'orders/*', element: <ComingSoon title="nav_orders" phase={5} /> },
+      { path: 'orders', element: <OrdersPage /> },
+      { path: 'orders/new', element: <OrderWizardPage /> },
+      { path: 'orders/:id', element: <OrderDetailPage /> },
+      { path: 'orders/:id/edit', element: <OrderWizardPage /> },
       { path: 'payments/*', element: <ComingSoon title="home_payment" phase={6} /> },
       { path: 'summary/*', element: <ComingSoon title="nav_summary" phase={8} /> },
       { path: 'master', lazy: async () => ({ Component: (await master()).MasterDataPage }) },

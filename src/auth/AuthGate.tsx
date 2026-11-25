@@ -1,8 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth'
 import { SYNCED_COLLECTIONS } from '@/data/collections'
 import { reconcileOutbox, watchLeftoverWrites } from '@/data/outbox'
 import { startDeltaSync } from '@/data/sync'
+import { ensureDeviceLetter } from '@/features/orders/actions'
 import type { WriteCtx } from '@/data/write'
 import { useI18n } from '@/i18n'
 import { auth, db } from '@/lib/firebase'
@@ -100,13 +101,22 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }, [ctx, justSignedIn])
 
   // Background data safety: sync, verify leftover writes, ask the browser not to evict storage.
+  // Runs once per signed-in shop session, not on every change to the member record.
+  const memberName = member?.name
+  const ready = !!(shopId && memberName && user)
+  const sessionCtx = useRef<WriteCtx | null>(null)
+  useLayoutEffect(() => {
+    sessionCtx.current = ctx
+  }, [ctx])
   useEffect(() => {
-    if (!shopId || !member) return
+    if (!ready || !shopId) return
     void navigator.storage?.persist?.()
     watchLeftoverWrites(db)
     void reconcileOutbox(db)
+    // Claim this device's order-number letter while we're (almost certainly) online.
+    if (sessionCtx.current) void ensureDeviceLetter(sessionCtx.current).catch((e) => console.warn('Device letter not claimed yet', e))
     return startDeltaSync(shopId, SYNCED_COLLECTIONS, () => {})
-  }, [shopId, member])
+  }, [ready, shopId])
 
   // Re-ask for the PIN after 5 minutes in the background.
   useEffect(() => {

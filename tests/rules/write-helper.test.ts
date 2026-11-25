@@ -17,6 +17,16 @@ vi.mock('@/lib/firebase', () => ({
   googleProvider: {},
 }))
 
+// Browser globals the app relies on, absent or partial in Node.
+const memory = new Map<string, string>()
+vi.stubGlobal('localStorage', {
+  getItem: (k: string) => memory.get(k) ?? null,
+  setItem: (k: string, v: string) => void memory.set(k, String(v)),
+  removeItem: (k: string) => void memory.delete(k),
+  clear: () => memory.clear(),
+})
+Object.defineProperty(globalThis.navigator, 'onLine', { value: true, configurable: true })
+
 let env: RulesTestEnvironment
 let db: Firestore
 let write: typeof import('@/data/write')
@@ -114,9 +124,60 @@ describe('real write helpers vs real rules', () => {
     expect(audit.changes).toEqual({ pinHash: { from: null, to: '•••' }, pinSalt: { from: null, to: '•••' } })
   })
 
+  it('claims a device letter and numbers orders atomically with the advance', async () => {
+    const actions = await import('@/features/orders/actions')
+    const letter = await actions.ensureDeviceLetter(ctx())
+    expect(letter).toBe('A')
+
+    const customer = write.createRecord(ctx(), 'customers', customerSchema, { name: 'रीना', phone: '9800000000' })
+    await customer.committed
+    const item = {
+      garmentTypeId: 'blouse-simple', garmentName: 'ब्लाउज़ (सादा)', qty: 1, rate: 350, addOns: [],
+      fabricByCustomer: true, fabricNotes: '', notes: '', measurementId: null, measurementTakenOn: null,
+      measurements: {}, designPhotoUrl: null,
+    }
+    const draft = {
+      customerId: customer.id, customerName: 'रीना', customerPhone: '9800000000', items: [item],
+      orderDate: '2026-11-25', trialDate: '', deliveryDate: '2026-11-30', urgent: false, karigarId: null, notes: '',
+    }
+
+    const counter1 = await read(`shops/${shopId}/counters/device-A`)
+    const first = actions.createOrder(ctx(), counter1 as never, 'GD', draft, { amount: 200, mode: 'upi' })
+    const counter2 = await read(`shops/${shopId}/counters/device-A`)
+    const second = actions.createOrder(ctx(), counter2 as never, 'GD', draft, null)
+    expect(first.orderNumber).toMatch(/^GD\/\d{2}-\d{2}\/A001$/)
+    expect(second.orderNumber).toMatch(/^GD\/\d{2}-\d{2}\/A002$/)
+
+    await vi.waitFor(async () => expect((await read(`shops/${shopId}/orders/${second.id}`)).status).toBe('received'), { timeout: 10000 })
+    expect((await read(`shops/${shopId}/counters/device-A`)).seq).toBe(2)
+    expect(outboxConflictsFor(await outbox.listConflicts(), first.id)).toBe(false)
+
+    // The advance is a real payment record linked to the order.
+    const { getDocs, query, collection, where } = await import('firebase/firestore')
+    const pays = await getDocs(query(collection(db, `shops/${shopId}/payments`), where('orderId', '==', first.id)))
+    expect(pays.docs.map((d) => d.get('amount'))).toEqual([200])
+
+    // Status change keeps a history entry.
+    const o = await read(`shops/${shopId}/orders/${first.id}`)
+    await actions.changeStatus(ctx(), o as never, 'cutting').committed
+    const after = await read(`shops/${shopId}/orders/${first.id}`)
+    expect(after.status).toBe('cutting')
+    expect((after.statusHistory as { status: string }[]).map((h) => h.status)).toEqual(['received', 'cutting'])
+  })
+
+  it('a second device gets a different letter', async () => {
+    localStorage.removeItem(`gd.device.${shopId}`)
+    const actions = await import('@/features/orders/actions')
+    expect(await actions.ensureDeviceLetter(ctx())).toBe('B')
+  })
+
   it('logs session events', async () => {
     const { id, committed } = write.logEvent(ctx(), 'login')
     await committed
     expect((await read(`shops/${shopId}/auditLogs/${id}`)).device).toBeTypeOf('string')
   })
 })
+
+function outboxConflictsFor(list: { id: string }[], id: string): boolean {
+  return list.some((c) => c.id === id)
+}

@@ -240,7 +240,7 @@ function GarmentEditor({ existing, nextSort }: { existing?: Stored<GarmentType>;
                 <TextField label={t('nameEn')} value={f.labelEn} onChange={(e) => setField(i, { labelEn: e.target.value })} />
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <select className={`${inputClass} w-auto flex-1`} aria-label={t('unit')} value={f.unit} onChange={(e) => setField(i, { unit: e.target.value as MeasurementField['unit'] })}>
+                <select className={cn(inputClass, "w-auto flex-1")} aria-label={t('unit')} value={f.unit} onChange={(e) => setField(i, { unit: e.target.value as MeasurementField['unit'] })}>
                   <option value="inch">{t('unit_inch')}</option>
                   <option value="count">{t('unit_count')}</option>
                   <option value="text">{t('unit_text')}</option>

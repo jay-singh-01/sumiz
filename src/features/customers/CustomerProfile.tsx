@@ -1,4 +1,4 @@
-import { ChevronDown, IndianRupee, MapPin, MessageCircle, Pencil, Phone, Ruler, Trash2 } from 'lucide-react'
+import { ChevronDown, IndianRupee, MapPin, MessageCircle, Pencil, Phone, Plus, Ruler, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useSession } from '@/auth/AuthGate'
@@ -13,6 +13,8 @@ import { restoreRecord, softDeleteRecord } from '@/data/write'
 import { Paisley } from '@/design/motifs'
 import type { GarmentType } from '@/features/master/schema'
 import type { Measurement } from '@/features/measurements/schema'
+import { OrderCard, todayISO } from '@/features/orders/components'
+import type { Order } from '@/features/orders/schema'
 import { useI18n } from '@/i18n'
 import { agoLabel } from '@/lib/dates'
 import { formatDate, formatINR } from '@/lib/format'
@@ -116,7 +118,7 @@ export function CustomerProfilePage() {
       />
 
       {tab === 'measurements' && <MeasurementsTab customerId={c.id} />}
-      {tab === 'orders' && <Card className="text-center text-ink-muted">{t('comingSoonPhase', { n: 5 })}</Card>}
+      {tab === 'orders' && <OrdersTab customerId={c.id} />}
       {tab === 'money' && <Card className="text-center text-ink-muted">{t('comingSoonPhase', { n: 6 })}</Card>}
 
       <Button variant="danger" block className="mt-6" onClick={() => setConfirmDelete(true)}>
@@ -271,6 +273,27 @@ function ValuesGrid({ m, garment, lang }: { m: Measurement; garment?: GarmentTyp
         </dl>
       )}
       {m.notes && <p className="mt-2 whitespace-pre-line">📝 {m.notes}</p>}
+    </div>
+  )
+}
+
+function OrdersTab({ customerId }: { customerId: string }) {
+  const { t } = useI18n()
+  const { shopId } = useSession()
+  const orders = useCollection<Order>(shopId, 'orders')
+  const mine = (orders ?? []).filter((o) => o.customerId === customerId).sort((a, b) => b.orderDate.localeCompare(a.orderDate) || b.orderNumber.localeCompare(a.orderNumber))
+  const today = todayISO()
+  return (
+    <div className="flex flex-col gap-3">
+      <Button asChild block>
+        <Link to={`/orders/new?customer=${customerId}`}>
+          <Plus /> {t('ord_newFor')}
+        </Link>
+      </Button>
+      {mine.length === 0 && <Card className="text-center text-lg text-ink-muted">{t('ord_none')}</Card>}
+      {mine.map((o) => (
+        <OrderCard key={o.id} order={o} today={today} />
+      ))}
     </div>
   )
 }

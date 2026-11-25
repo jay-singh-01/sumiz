@@ -102,7 +102,7 @@ export function AppShell() {
         </div>
       </aside>
 
-      <div className="flex min-h-svh flex-col">
+      <div className="flex min-h-svh min-w-0 flex-col">
         {/* Top bar: phone */}
         <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur md:hidden">
           <div className="flex items-center gap-2 px-4 py-2">
