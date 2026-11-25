@@ -51,6 +51,14 @@ npx firebase use --add          # pick your project id, alias it "prod"
 npx firebase deploy --only firestore:rules,firestore:indexes
 ```
 
+**Behind a company proxy, `firebase login` often fails** (e.g. `Failed to make request to https://auth.firebase.tools/attest`). You don't need the CLI login. Publish the rules from the browser instead:
+
+1. Console → **Databases & Storage → Firestore → Rules** tab.
+2. Copy the whole of `firestore.rules` from this repo, paste it over the editor contents, click **Publish**.
+3. Repeat whenever `firestore.rules` changes. Indexes (`firestore.indexes.json`) are empty for now; when that changes, the README will say how to add them in the console.
+
+Emulators and tests need no login (they use the `demo-` project), and backups and deploys run on GitHub/Cloudflare servers outside your network.
+
 `.firebaserc` keeps `demo-gota-dhaaga` as the default so emulator work can never touch real data. Use `--project prod` (or `npx firebase use prod`) when deploying.
 
 ## 6. Service account for nightly backups (Phase 9, can wait)
