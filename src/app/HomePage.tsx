@@ -14,6 +14,7 @@ import type { Stored } from '@/data/types'
 import { itemsSummary, StatusChip } from '@/features/orders/components'
 import { byUrgency, isDueToday, isOverdue } from '@/features/orders/logic'
 import type { Order } from '@/features/orders/schema'
+import { useLedger } from '@/features/bills/useLedger'
 import { toISODate } from '@/lib/dates'
 
 function BigTile({ to, label, icon, className, delay }: { to: string; label: string; icon: ReactNode; className: string; delay: number }) {
@@ -79,6 +80,7 @@ export function HomePage() {
   const [now] = useState(() => new Date())
   const today = new Intl.DateTimeFormat(lang === 'hi' ? 'hi-IN' : 'en-IN', { weekday: 'long', day: 'numeric', month: 'long' }).format(now)
   const orders = useCollection<Order>(shopId, 'orders')
+  const { dues, debtors } = useLedger()
   const todayIso = toISODate(now)
   const dueToday = useMemo(() => (orders ?? []).filter((o) => isDueToday(o, todayIso)).sort(byUrgency), [orders, todayIso])
   const overdue = useMemo(() => (orders ?? []).filter((o) => isOverdue(o, todayIso)).sort(byUrgency), [orders, todayIso])
@@ -116,13 +118,12 @@ export function HomePage() {
             <OrderMiniList orders={overdue} />
           )}
         </ArchCard>
-        {/* Dues are derived from bills − payments in Phase 6. */}
         <ArchCard title={t('home_dues')} icon={<IndianRupee />}>
           <div className="flex items-center gap-4">
             <PeacockFeather className="h-16 w-8 shrink-0" />
             <div>
-              <div className="money text-3xl font-bold text-rani">{formatINR(0)}</div>
-              <div className="text-ink-muted">{t('empty_dues')}</div>
+              <div className={`money text-3xl font-bold ${dues > 0 ? 'text-rani' : 'text-emerald-deep'}`}>{formatINR(dues)}</div>
+              <div className="text-ink-muted">{dues > 0 ? t('dues_customers', { n: debtors }) : t('empty_dues')}</div>
             </div>
           </div>
         </ArchCard>

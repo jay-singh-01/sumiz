@@ -1,6 +1,6 @@
 import { ChevronDown, IndianRupee, MapPin, MessageCircle, Pencil, Phone, Plus, Ruler, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useSession } from '@/auth/AuthGate'
 import { Button } from '@/components/ui/button'
 import { ArchCard, Card } from '@/components/ui/card'
@@ -11,13 +11,15 @@ import { useCollection } from '@/data/hooks'
 import type { Stored } from '@/data/types'
 import { restoreRecord, softDeleteRecord } from '@/data/write'
 import { Paisley } from '@/design/motifs'
+import { BalanceText, LedgerTab } from '@/features/bills/LedgerTab'
+import { useLedger } from '@/features/bills/useLedger'
 import type { GarmentType } from '@/features/master/schema'
 import type { Measurement } from '@/features/measurements/schema'
 import { OrderCard, todayISO } from '@/features/orders/components'
 import type { Order } from '@/features/orders/schema'
 import { useI18n } from '@/i18n'
 import { agoLabel } from '@/lib/dates'
-import { formatDate, formatINR } from '@/lib/format'
+import { formatDate } from '@/lib/format'
 import { fromISODate } from '@/lib/dates'
 import { cn } from '@/lib/cn'
 import { formatPhone, telLink, whatsappLink } from '@/lib/whatsapp'
@@ -35,7 +37,9 @@ export function CustomerProfilePage() {
   const { shopId, ctx } = useSession()
   const navigate = useNavigate()
   const customers = useCollection<Customer>(shopId, 'customers')
-  const [tab, setTab] = useState<Tab>('measurements')
+  const [params] = useSearchParams()
+  const [tab, setTab] = useState<Tab>(() => (params.get('tab') as Tab) || 'measurements')
+  const { balances } = useLedger()
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   if (customers === undefined) return null
@@ -90,12 +94,12 @@ export function CustomerProfilePage() {
           </Button>
         </div>
         {/* Derived from bills − payments in Phase 6. */}
-        <div className="flex items-center justify-between rounded-xl bg-surface-2 px-4 py-3">
+        <button type="button" onClick={() => setTab('money')} className="flex items-center justify-between rounded-xl bg-surface-2 px-4 py-3 text-left">
           <span className="flex items-center gap-2 text-lg">
             <IndianRupee className="size-5 text-rani" /> {t('balance_label')}
           </span>
-          <span className="money text-2xl font-bold text-emerald-deep">{formatINR(0)}</span>
-        </div>
+          <BalanceText balance={balances.get(c.id) ?? 0} className="text-2xl" />
+        </button>
         {(c.address || c.notes || c.referredBy || c.birthday || c.anniversary) && (
           <dl className="grid gap-1 text-lg">
             {c.address && <Detail label={t('cust_address')} value={c.address} />}
@@ -119,7 +123,7 @@ export function CustomerProfilePage() {
 
       {tab === 'measurements' && <MeasurementsTab customerId={c.id} />}
       {tab === 'orders' && <OrdersTab customerId={c.id} />}
-      {tab === 'money' && <Card className="text-center text-ink-muted">{t('comingSoonPhase', { n: 6 })}</Card>}
+      {tab === 'money' && <LedgerTab customer={c} />}
 
       <Button variant="danger" block className="mt-6" onClick={() => setConfirmDelete(true)}>
         <Trash2 /> {t('cust_delete')}

@@ -154,6 +154,16 @@ service cloud.firestore {
         && d.date is string;
     }
 
+    function validBill(d) {
+      return d.billNumber is string && d.billNumber.size() > 0
+        && d.customerId is string && d.customerId.size() > 0
+        && d.lines is list && d.lines.size() >= 1 && d.lines.size() <= 100
+        && d.total is number && d.total >= 0
+        && d.revision is int && d.revision >= 1
+        && d.revisions is list
+        && d.billDate is string;
+    }
+
     function validCounter(d) {
       return d.seq is int && d.seq >= 0 && d.letter is string && d.fy is string;
     }
@@ -165,6 +175,7 @@ service cloud.firestore {
         : coll == 'addOns' ? validAddOn(d)
         : coll == 'orders' ? validOrder(d)
         : coll == 'payments' ? validPayment(d)
+        : coll == 'bills' ? validBill(d)
         : coll == 'counters' ? validCounter(d)
         : true;
     }

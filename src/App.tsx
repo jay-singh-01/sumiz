@@ -3,6 +3,9 @@ import { AuthGate } from '@/auth/AuthGate'
 import { AppShell } from '@/app/AppShell'
 import { ComingSoon } from '@/app/ComingSoon'
 import { HomePage } from '@/app/HomePage'
+import { BillEditorPage } from '@/features/bills/BillEditor'
+import { BillPage } from '@/features/bills/BillPage'
+import { PaymentPage } from '@/features/payments/PaymentPage'
 import { CustomerFormPage } from '@/features/customers/CustomerForm'
 import { CustomerProfilePage } from '@/features/customers/CustomerProfile'
 import { CustomersPage } from '@/features/customers/CustomersPage'
@@ -29,7 +32,10 @@ const router = createBrowserRouter([
       { path: 'orders/new', element: <OrderWizardPage /> },
       { path: 'orders/:id', element: <OrderDetailPage /> },
       { path: 'orders/:id/edit', element: <OrderWizardPage /> },
-      { path: 'payments/*', element: <ComingSoon title="home_payment" phase={6} /> },
+      { path: 'payments/new', element: <PaymentPage /> },
+      { path: 'bills/new', element: <BillEditorPage /> },
+      { path: 'bills/:id', element: <BillPage /> },
+      { path: 'bills/:id/edit', element: <BillEditorPage /> },
       { path: 'summary/*', element: <ComingSoon title="nav_summary" phase={8} /> },
       { path: 'master', lazy: async () => ({ Component: (await master()).MasterDataPage }) },
       { path: 'master/garments/:id', lazy: async () => ({ Component: (await master()).GarmentEditorPage }) },

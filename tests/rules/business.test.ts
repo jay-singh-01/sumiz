@@ -257,3 +257,18 @@ describe('orders, payments and counters validation', () => {
     await assertFails(create('counters', { letter: 'A', fy: '26-27', seq: 1.5 }))
   })
 })
+
+describe('bills validation', () => {
+  const create = (data: Record<string, unknown>) =>
+    auditedWrite(as(env, 'helper'), { uid: 'helper', coll: 'bills', id: 'b1', version: 1, data: { ...data, ...createMeta('helper') }, action: 'create' })
+  const bill = { billNumber: 'GD/26-27/A001', customerId: 'c1', lines: [{ name: 'ब्लाउज़', qty: 1, rate: 350 }], total: 350, revision: 1, revisions: [], billDate: '2026-11-25' }
+
+  it('accepts a valid bill', async () => {
+    await assertSucceeds(create(bill))
+  })
+  it('rejects empty, negative or unrevisioned bills', async () => {
+    await assertFails(create({ ...bill, lines: [] }))
+    await assertFails(create({ ...bill, total: -1 }))
+    await assertFails(create({ ...bill, revision: 0 }))
+  })
+})

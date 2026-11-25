@@ -165,6 +165,47 @@ describe('real write helpers vs real rules', () => {
     expect((after.statusHistory as { status: string }[]).map((h) => h.status)).toEqual(['received', 'cutting'])
   })
 
+  it('bills an order, keeps revisions, and settles it with a payment', async () => {
+    const bills = await import('@/features/bills/actions')
+    const ledger = await import('@/features/bills/ledger')
+    const { getDocs, collection, query, where } = await import('firebase/firestore')
+    const orders = await getDocs(query(collection(db, `shops/${shopId}/orders`), where('orderNumber', '>=', '')))
+    const order = orders.docs.map((d) => ({ id: d.id, ...d.data() }) as never as { id: string; orderNumber: string; customerId: string; items: unknown[] }).find((o) => o.orderNumber.endsWith('A001'))!
+
+    const id = bills.createBillForOrder(ctx(), order as never, {
+      billDate: '2026-11-26',
+      lines: bills.linesFromOrder(order as never),
+      discount: { type: 'flat', value: 0 },
+      roundOff: true,
+      notes: '',
+    })
+    await vi.waitFor(async () => expect((await read(`shops/${shopId}/bills/${id}`)).total).toBe(350), { timeout: 10000 })
+    const v1 = await read(`shops/${shopId}/bills/${id}`)
+    expect(v1.billNumber).toBe(order.orderNumber)
+
+    await bills.reviseBill(ctx(), v1 as never, {
+      billDate: '2026-11-26',
+      lines: [{ name: 'ब्लाउज़ (सादा)', qty: 1, rate: 400, addOns: [] }],
+      discount: { type: 'flat', value: 50 },
+      roundOff: true,
+      notes: '',
+    }).committed
+    const v2 = await read(`shops/${shopId}/bills/${id}`)
+    expect(v2.total).toBe(350)
+    expect(v2.revision).toBe(2)
+    expect((v2.revisions as { revision: number; total: number }[]).map((r) => [r.revision, r.total])).toEqual([[1, 350]])
+
+    // Advance (200, from the order) + payment (150) settles the bill.
+    await bills.recordPayment(ctx(), {
+      customerId: order.customerId, customerName: 'रीना', orderId: null, billId: id, amount: 150,
+      mode: 'cash', date: '2026-11-27', kind: 'payment', note: '',
+    }).committed
+    const allPays = (await getDocs(collection(db, `shops/${shopId}/payments`))).docs.map((d) => ({ id: d.id, ...d.data() }))
+    const allBills = (await getDocs(collection(db, `shops/${shopId}/bills`))).docs.map((d) => ({ id: d.id, ...d.data() }))
+    expect(ledger.billPaid({ id, orderId: order.id }, allPays as never)).toBe(350)
+    expect(ledger.customerBalance(order.customerId, allBills as never, allPays as never)).toBe(0)
+  })
+
   it('a second device gets a different letter', async () => {
     localStorage.removeItem(`gd.device.${shopId}`)
     const actions = await import('@/features/orders/actions')

@@ -154,6 +154,27 @@
   }
 }
 
+/* Printing a bill: only the document, at full size. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+  }
+  .fit-scale {
+    transform: none !important;
+  }
+  body::before {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

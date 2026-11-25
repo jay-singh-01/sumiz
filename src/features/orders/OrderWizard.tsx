@@ -376,7 +376,7 @@ function OrderWizard({ existing }: { existing?: Stored<Order> }) {
   )
 }
 
-function CustomerStep({ customers, onPick }: { customers: Stored<Customer>[]; onPick: (c: { id: string }) => void }) {
+export function CustomerStep({ customers, onPick }: { customers: Stored<Customer>[]; onPick: (c: { id: string }) => void }) {
   const { t } = useI18n()
   const { ctx } = useSession()
   const [q, setQ] = useState('')

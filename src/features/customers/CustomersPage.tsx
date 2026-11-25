@@ -12,6 +12,8 @@ import type { Stored } from '@/data/types'
 import { Elephant } from '@/design/motifs'
 import { useI18n } from '@/i18n'
 import { formatPhone } from '@/lib/whatsapp'
+import { BalanceText } from '@/features/bills/LedgerTab'
+import { useLedger } from '@/features/bills/useLedger'
 import type { Customer } from './schema'
 import { searchCustomers } from './search'
 
@@ -37,6 +39,7 @@ export function CustomersPage() {
   const { t } = useI18n()
   const { shopId } = useSession()
   const customers = useCollection<Customer>(shopId, 'customers')
+  const { balances } = useLedger()
   const [params, setParams] = useSearchParams()
   const q = params.get('q') ?? ''
   const deferred = useDeferredValue(q)
@@ -123,6 +126,7 @@ export function CustomersPage() {
                   </div>
                   <TagChips tags={c.tags ?? []} />
                 </div>
+                {(balances.get(c.id) ?? 0) > 0 && <BalanceText balance={balances.get(c.id)!} className="text-lg" />}
               </Link>
             </motion.li>
           ))}

@@ -17,6 +17,9 @@ export interface BillView extends BillInput {
   customer: { name: string; phone?: string }
   orderNumber?: string
   deliveryDate?: Date
+  /** Shown when the bill has been edited after issue. */
+  revision?: number
+  notes?: string
 }
 
 const ARCH =
@@ -83,6 +86,7 @@ export function BillPreview({
         <div>
           <div className="text-ink-muted">बिल / Bill</div>
           <div className="money text-lg font-bold">{bill.number}</div>
+          {bill.revision && bill.revision > 1 && <div className="text-xs text-ink-muted">संस्करण / Version {bill.revision}</div>}
         </div>
         <div className="text-right">
           <div className="text-ink-muted">दिनांक / Date</div>
@@ -157,6 +161,8 @@ export function BillPreview({
           </div>
         </div>
       </div>
+
+      {bill.notes && <p className="relative mx-2 mt-3 text-ink-muted whitespace-pre-line">📝 {bill.notes}</p>}
 
       <footer className="relative mt-5 pb-3 text-center">
         <div className="mx-auto mb-2 h-px w-2/3 bg-[#e6c46a]" />

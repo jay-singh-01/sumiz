@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarDays, CheckCircle2, MessageCircle, Pencil, Phone, Plus, RotateCcw, XCircle } from 'lucide-react'
+import { ArrowRight, CalendarDays, CheckCircle2, MessageCircle, Pencil, Phone, Plus, Receipt, RotateCcw, XCircle } from 'lucide-react'
 import { Dialog as D } from 'radix-ui'
 import { useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/ui/page'
 import { toast } from '@/components/ui/toast'
 import { useCollection } from '@/data/hooks'
 import { MarigoldBurst } from '@/design/motifs'
+import { useLedger } from '@/features/bills/useLedger'
 import type { GarmentType } from '@/features/master/schema'
 import type { Payment } from '@/features/payments/schema'
 import { useI18n } from '@/i18n'
@@ -39,6 +40,8 @@ export function OrderDetailPage() {
   const [burst, setBurst] = useState(false)
 
   const order = orders?.find((o) => o.id === id)
+  const { bills } = useLedger()
+  const bill = bills?.find((b) => b.orderId === id)
   const paid = useMemo(() => (payments ?? []).filter((p) => p.orderId === id).reduce((s, p) => s + p.amount, 0), [payments, id])
   if (orders === undefined) return null
   if (!order) return <PageHeader title={t('ord_none')} back="/orders" />
@@ -141,6 +144,14 @@ export function OrderDetailPage() {
           {t('ord_changeStatus')}
         </Button>
       </Card>
+
+      {order.status !== 'cancelled' && (
+        <Button asChild variant={bill ? 'secondary' : 'primary'} block>
+          <Link to={bill ? `/bills/${bill.id}` : `/bills/new?order=${order.id}`}>
+            <Receipt /> {bill ? t('bill_view') : t('bill_make')}
+          </Link>
+        </Button>
+      )}
 
       <Card className="grid grid-cols-3 gap-2">
         <Button asChild variant="success" size="md" className={cn('min-h-16 flex-col gap-0.5 px-1 text-base', !waChat && 'pointer-events-none opacity-40')}>
