@@ -1,5 +1,5 @@
 import { motion } from 'motion/react'
-import { BarChart3, BellRing, CalendarCheck, Clock, IndianRupee, Plus, Users, Wallet } from 'lucide-react'
+import { BarChart3, BellRing, ShieldCheck, CalendarCheck, Clock, IndianRupee, Plus, Users, Wallet } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useSession } from '@/auth/AuthGate'
@@ -9,6 +9,7 @@ import { useI18n } from '@/i18n'
 import { cn } from '@/lib/cn'
 import { formatINR } from '@/lib/format'
 import { haptic } from '@/lib/haptics'
+import { backupDue } from '@/data/backupActions'
 import { useCollection } from '@/data/hooks'
 import type { Stored } from '@/data/types'
 import { itemsSummary, StatusChip } from '@/features/orders/components'
@@ -79,6 +80,7 @@ export function HomePage() {
   const { t, lang } = useI18n()
   const { member, shopId } = useSession()
   const [now] = useState(() => new Date())
+  const [showBackupBanner] = useState(() => backupDue(now.getTime()))
   const today = new Intl.DateTimeFormat(lang === 'hi' ? 'hi-IN' : 'en-IN', { weekday: 'long', day: 'numeric', month: 'long' }).format(now)
   const orders = useCollection<Order>(shopId, 'orders')
   const todayIso = toISODate(now)
@@ -110,6 +112,16 @@ export function HomePage() {
         <BigTile to="/payments/new" label={t('home_payment')} icon={<Wallet />} className="bg-emerald-deep text-on-emerald" delay={0.1} />
         <BigTile to="/summary" label={t('home_summary')} icon={<BarChart3 />} className="bg-marigold text-on-marigold" delay={0.15} />
       </div>
+
+      {showBackupBanner && (
+        <Link
+          to="/backup"
+          className="flex min-h-14 items-center gap-3 rounded-2xl border-2 border-marigold bg-marigold/15 px-4 py-3 text-lg font-semibold text-ink"
+        >
+          <ShieldCheck className="size-6 shrink-0 text-gold-deep" /> <span className="flex-1">{t('bk_banner')}</span>
+          <span className="rounded-xl bg-marigold px-3 py-1 text-on-marigold">{t('bk_bannerBtn')}</span>
+        </Link>
+      )}
 
       {toRemind > 0 && (
         <Link

@@ -1,0 +1,13 @@
+{
+  "name": "gota-dhaaga-backups",
+  "private": true,
+  "type": "module",
+  "description": "Nightly backup of the Gota & Dhaaga Firestore data. Copy this folder into a PRIVATE GitHub repo (see docs/BACKUP.md in the app repo).",
+  "scripts": {
+    "backup": "node backup.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.5.1",
+    "write-excel-file": "^4.1.1"
+  }
+}

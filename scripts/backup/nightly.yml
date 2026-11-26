@@ -1,0 +1,41 @@
+# Copy to .github/workflows/nightly.yml in the PRIVATE backup repo.
+name: Nightly backup
+
+on:
+  schedule:
+    - cron: '30 20 * * *' # 02:00 IST every night
+  workflow_dispatch: # "Run workflow" button for a backup right now
+
+permissions:
+  contents: write
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install --no-audit --no-fund
+      - name: Export Firestore
+        run: node backup.mjs | tee run.log
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - name: Commit backup
+        run: |
+          git config user.name "gota-dhaaga-backup"
+          git config user.email "backup@users.noreply.github.com"
+          git add latest daily audit reports excel meta.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "Backup $(date -u +%F)" -m "$(cat run.log)"
+            git push
+          fi
+      # A red ❌ in the Actions tab (and GitHub's failure email) means last night's backup failed.

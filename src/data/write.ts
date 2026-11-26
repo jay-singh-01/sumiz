@@ -263,6 +263,31 @@ function versionedUpdate<T>(
   return { id: current.id, committed: commitTracked(batch, ctx, staged) }
 }
 
+/**
+ * Restore from a backup: writes the record's backed-up fields with fresh,
+ * rule-compliant bookkeeping (a new record starts at version 1; an existing or
+ * deleted one gets version + 1 and keeps its original creation fields) and an
+ * audit entry with action "restoreBackup".
+ */
+export function stageRestore(
+  batch: Stager,
+  ctx: WriteCtx,
+  coll: AuditedCollection,
+  id: string,
+  fields: Record<string, unknown>,
+  current: (Meta & { id: string }) | null,
+  label?: string,
+): StagedWrite {
+  const version = current ? current.version + 1 : 1
+  const aid = auditId(coll, id, version)
+  const meta = current
+    ? { createdAt: current.createdAt, createdBy: current.createdBy, version, updatedBy: ctx.uid, updatedAt: serverTimestamp(), isDeleted: false }
+    : { version: 1, createdBy: ctx.uid, updatedBy: ctx.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), isDeleted: false }
+  batch.set(ref(ctx, coll, id), { ...fields, ...meta })
+  batch.set(auditRef(ctx, aid), auditBody(ctx, 'restoreBackup', coll, id, { label, note: current ? (current.isDeleted ? 'undeleted from backup' : 'reverted to backup') : 'recreated from backup' }))
+  return { coll, id, action: 'restoreBackup', auditDocId: aid, data: null }
+}
+
 /** The ref an audited record lives at (for transactions that read before writing). */
 export function recordRef(ctx: WriteCtx, coll: AuditedCollection, id: string): DocumentReference {
   return ref(ctx, coll, id)

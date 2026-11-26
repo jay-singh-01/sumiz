@@ -1,4 +1,4 @@
-import { AlertTriangle, KeyRound, Lock, LogOut, MonitorSmartphone, Palette, Shirt, Store, Type, UserPlus, Users } from 'lucide-react'
+import { AlertTriangle, KeyRound, ShieldCheck, Lock, LogOut, MonitorSmartphone, Palette, Shirt, Store, Type, UserPlus, Users } from 'lucide-react'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Link } from 'react-router'
 import { z } from 'zod'
@@ -280,6 +280,11 @@ export function SettingsPage() {
     <div className="flex flex-col gap-5">
       <h1 className="text-3xl">{t('settingsTitle')}</h1>
       <Conflicts />
+      <Button asChild block>
+        <Link to="/backup">
+          <ShieldCheck /> {t('bk_title')}
+        </Link>
+      </Button>
       <ShopDetails />
       <TemplatesEditor />
       <Display />

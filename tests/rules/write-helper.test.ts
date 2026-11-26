@@ -206,6 +206,28 @@ describe('real write helpers vs real rules', () => {
     expect(ledger.customerBalance(order.customerId, allBills as never, allPays as never)).toBe(0)
   })
 
+  it('restores from a backup (recreate, undelete, overwrite) through the real rules', async () => {
+    const { writeBatch } = await import('firebase/firestore')
+    const c = write.createRecord(ctx(), 'customers', customerSchema, { name: 'पुराना नाम', phone: '9000000001' })
+    await c.committed
+    const v1 = await read(`shops/${shopId}/customers/${c.id}`)
+
+    // Overwrite an existing record back to its backed-up fields.
+    const b1 = writeBatch(db)
+    const s1 = write.stageRestore(b1, ctx(), 'customers', c.id, { name: 'बैकअप वाला नाम', phone: '9000000001' }, v1 as never, 'x')
+    await write.commitTracked(b1, ctx(), s1)
+    const after = await read(`shops/${shopId}/customers/${c.id}`)
+    expect(after.name).toBe('बैकअप वाला नाम')
+    expect(after.version).toBe(2)
+    expect((await read(`shops/${shopId}/auditLogs/customers_${c.id}_v2`)).action).toBe('restoreBackup')
+
+    // Recreate a record that no longer exists at all.
+    const b2 = writeBatch(db)
+    const s2 = write.stageRestore(b2, ctx(), 'customers', 'restored-1', { name: 'वापस आई', phone: '' }, null, 'x')
+    await write.commitTracked(b2, ctx(), s2)
+    expect((await read(`shops/${shopId}/customers/restored-1`)).version).toBe(1)
+  })
+
   it('a second device gets a different letter', async () => {
     localStorage.removeItem(`gd.device.${shopId}`)
     const actions = await import('@/features/orders/actions')
