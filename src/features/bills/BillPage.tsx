@@ -42,7 +42,7 @@ export function BillPage() {
 
   const bill = bills?.find((b) => b.id === id)
   const paid = useMemo(() => (bill ? billPaid(bill, payments ?? []) : 0), [bill, payments])
-  const totals = bill ? computeBill({ lines: bill.lines, discount: bill.discount, roundOff: bill.roundOff, payments: [paid] }) : null
+  const totals = bill ? computeBill({ lines: bill.lines, discount: bill.discount, roundOff: bill.roundOff, taxPercent: bill.gstPercent, payments: [paid] }) : null
   const due = totals ? Math.max(0, totals.balance) : 0
 
   // UPI QR with the amount still due pre-filled.
@@ -73,6 +73,8 @@ export function BillPage() {
     discount: shown.discount,
     roundOff: shown.roundOff,
     payments: viewRevision === null && paid > 0 ? [paid] : [],
+    taxPercent: bill.gstPercent,
+    gstin: bill.gstin,
     revision: shown.revision,
     notes: viewRevision === null ? bill.notes : undefined,
   }
@@ -142,7 +144,7 @@ export function BillPage() {
       </Card>
 
       {due > 0 && (
-        <Button asChild variant="success" block>
+        <Button asChild variant="success" block data-tour="bill-pay">
           <Link to={`/payments/new?customer=${bill.customerId}&bill=${bill.id}`}>
             <Wallet /> {t('pay_title')}
           </Link>
@@ -150,7 +152,7 @@ export function BillPage() {
       )}
 
       <div className="grid grid-cols-2 gap-2">
-        <Button variant="primary" disabled={!!busy} onClick={() => void exportAs('image')}>
+        <Button data-tour="bill-share" variant="primary" disabled={!!busy} onClick={() => void exportAs('image')}>
           {busy === 'image' ? <Loader2 className="animate-spin" /> : <ImageIcon />} {t('bill_shareImage')}
         </Button>
         <Button variant="secondary" disabled={!!busy} onClick={() => void exportAs(isA4 ? 'a4' : 'pdf')}>

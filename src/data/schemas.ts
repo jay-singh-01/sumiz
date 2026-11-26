@@ -50,6 +50,12 @@ export const settingsSchema = z.object({
   language: languageSchema,
   /** WhatsApp reminder templates; defaults apply until she edits them. */
   templates: templatesSchema.optional(),
+  /** Extra features she can switch off (missing = on). */
+  features: z.record(z.string(), z.boolean()).optional(),
+  /** Optional GST on bills (off unless enabled). */
+  gst: z.object({ enabled: z.boolean(), gstin: z.string().trim().max(15), rate: z.number().min(0).max(28) }).optional(),
+  /** Free Cloudinary account for photos (unsigned upload preset). */
+  cloudinary: z.object({ cloudName: z.string().trim().max(60), uploadPreset: z.string().trim().max(60) }).optional(),
 })
 export type Settings = z.infer<typeof settingsSchema>
 

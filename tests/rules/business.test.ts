@@ -287,3 +287,25 @@ describe('reminders validation', () => {
     await assertFails(create({ ...r, message: '' }))
   })
 })
+
+describe('expenses, karigars and materials', () => {
+  const create = (uid: string, coll: string, data: Record<string, unknown>) =>
+    auditedWrite(as(env, uid), { uid, coll, id: 'x1', version: 1, data: { ...data, ...createMeta(uid) }, action: 'create' })
+
+  it('validates expenses', async () => {
+    await assertSucceeds(create('helper', 'expenses', { category: 'thread', amount: 120, date: '2026-11-26', note: '', karigarId: null }))
+    await assertFails(create('helper', 'expenses', { category: 'gold', amount: 120, date: '2026-11-26' }))
+    await assertFails(create('helper', 'expenses', { category: 'thread', amount: 0, date: '2026-11-26' }))
+  })
+
+  it('karigar rates are manager-only', async () => {
+    const k = { name: 'रमेश', phone: '', ratePerPiece: 150, active: true, notes: '' }
+    await assertFails(create('helper', 'karigars', k))
+    await assertSucceeds(create('owner', 'karigars', k))
+  })
+
+  it('helpers can keep material stock', async () => {
+    await assertSucceeds(create('helper', 'materials', { name: 'धागा', qty: 4, minQty: 5, unit: 'रील', active: true }))
+    await assertFails(create('helper', 'materials', { name: 'धागा', qty: -1, minQty: 5, unit: 'रील', active: true }))
+  })
+})

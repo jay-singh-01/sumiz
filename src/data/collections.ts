@@ -12,6 +12,7 @@ export const BUSINESS_COLLECTIONS = [
   'addOns',
   'settings',
   'counters',
+  'materials',
 ] as const
 
 export type BusinessCollection = (typeof BUSINESS_COLLECTIONS)[number]

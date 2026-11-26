@@ -118,23 +118,38 @@ export function daysBetween(fromISO: string, toISO: string): number {
  * ageing ("31–60 days") and payment reminders.
  */
 export function oldestDueDate(customerId: string, bills: LedgerBill[], payments: LedgerPayment[]): string | null {
-  const debits: { date: string; paise: number }[] = [
-    ...live(bills)
-      .filter((b) => b.customerId === customerId)
-      .map((b) => ({ date: b.billDate, paise: p(b.total) })),
-    ...live(payments)
-      .filter((x) => x.customerId === customerId && x.kind === 'opening')
-      .map((x) => ({ date: x.date, paise: p(x.amount) })),
-  ].sort((a, b) => a.date.localeCompare(b.date))
-  let credit = live(payments)
-    .filter((x) => x.customerId === customerId && x.kind !== 'opening')
-    .reduce((s, x) => s + p(x.amount), 0)
-  for (const d of debits) {
-    if (credit >= d.paise) {
-      credit -= d.paise
-      continue
-    }
-    return d.date
+  return allOldestDueDates(
+    bills.filter((b) => b.customerId === customerId),
+    payments.filter((x) => x.customerId === customerId),
+  ).get(customerId) ?? null
+}
+
+/** oldestDueDate for every customer in one pass (lists and reports over thousands of bills). */
+export function allOldestDueDates(bills: LedgerBill[], payments: LedgerPayment[]): Map<string, string> {
+  const debits = new Map<string, { date: string; paise: number }[]>()
+  const credits = new Map<string, number>()
+  const addDebit = (id: string, date: string, paise: number) => {
+    const list = debits.get(id)
+    if (list) list.push({ date, paise })
+    else debits.set(id, [{ date, paise }])
   }
-  return null
+  for (const b of live(bills)) addDebit(b.customerId, b.billDate, p(b.total))
+  for (const x of live(payments)) {
+    if (x.kind === 'opening') addDebit(x.customerId, x.date, p(x.amount))
+    else credits.set(x.customerId, (credits.get(x.customerId) ?? 0) + p(x.amount))
+  }
+  const out = new Map<string, string>()
+  for (const [id, list] of debits) {
+    list.sort((a, b) => a.date.localeCompare(b.date))
+    let credit = credits.get(id) ?? 0
+    for (const d of list) {
+      if (credit >= d.paise) {
+        credit -= d.paise
+        continue
+      }
+      out.set(id, d.date)
+      break
+    }
+  }
+  return out
 }

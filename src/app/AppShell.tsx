@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { BarChart3, BellRing, Home, Palette, Scissors, Settings as SettingsIcon, Shirt, Users } from 'lucide-react'
+import { BarChart3, BellRing, HelpCircle, Home, LayoutGrid, Palette, Scissors, Settings as SettingsIcon, Shirt, Users } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { NavLink, useLocation, useOutlet } from 'react-router'
 import logoUrl from '@/assets/logo.svg'
@@ -9,6 +9,10 @@ import { useI18n } from '@/i18n'
 import type { StringKey } from '@/i18n/strings'
 import { cn } from '@/lib/cn'
 import { SyncIndicator } from './SyncIndicator'
+import { useFeatures } from './features'
+import { DailyNotifier } from '@/features/extras/DailyNotifier'
+import { startTour, TourOverlay } from '@/features/extras/Tour'
+import { tourFor } from '@/features/extras/tours'
 import { useIsManager, useSettings } from './useShop'
 
 interface NavItem {
@@ -25,10 +29,34 @@ const NAV: NavItem[] = [
   { to: '/orders', label: 'nav_orders', icon: <Scissors />, mobile: true },
   { to: '/reminders', label: 'rem_title', icon: <BellRing /> },
   { to: '/summary', label: 'nav_summary', icon: <BarChart3 /> },
-  { to: '/settings', label: 'nav_settings', icon: <SettingsIcon />, mobile: true },
+  { to: '/more', label: 'nav_more', icon: <LayoutGrid />, mobile: true },
+  { to: '/settings', label: 'nav_settings', icon: <SettingsIcon /> },
   { to: '/master', label: 'master', icon: <Shirt />, managerOnly: true },
   { to: '/design', label: 'nav_design', icon: <Palette />, managerOnly: true },
 ]
+
+/** ❓ "show me how" for the current screen. */
+function HelpButton({ wide }: { wide?: boolean }) {
+  const { t } = useI18n()
+  const on = useFeatures()
+  const location = useLocation()
+  const steps = tourFor(location.pathname)
+  if (!on('help') || steps.length === 0) return null
+  return (
+    <button
+      type="button"
+      onClick={() => startTour(steps)}
+      aria-label={t('help_tour')}
+      className={cn(
+        'flex min-h-11 items-center justify-center gap-1 rounded-full border-2 border-marigold font-semibold text-gold-deep',
+        wide ? 'min-h-12 rounded-xl' : 'size-11',
+      )}
+    >
+      <HelpCircle className="size-6" />
+      {wide && t('help_tour')}
+    </button>
+  )
+}
 
 function Brand({ compact }: { compact?: boolean }) {
   const { settings } = useSettings()
@@ -92,6 +120,7 @@ export function AppShell() {
           ))}
         </nav>
         <div className="mt-auto flex flex-col gap-3">
+          <HelpButton wide />
           <SyncIndicator />
           <button
             type="button"
@@ -110,7 +139,10 @@ export function AppShell() {
             <div className="min-w-0 flex-1">
               <Brand compact />
             </div>
-            <SyncIndicator compact />
+            <HelpButton />
+            <span data-tour="sync">
+              <SyncIndicator compact />
+            </span>
           </div>
           <LeheriyaDivider className="h-1 rounded-none" />
         </header>
@@ -146,6 +178,8 @@ export function AppShell() {
         </nav>
       </div>
       <Toaster />
+      <TourOverlay />
+      <DailyNotifier />
     </div>
   )
 }

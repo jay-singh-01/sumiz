@@ -23,7 +23,12 @@ import { cn } from '@/lib/cn'
 import { agoLabel, fromISODate } from '@/lib/dates'
 import { formatDate, formatINR } from '@/lib/format'
 import { formatPhone, telLink, whatsappLink } from '@/lib/whatsapp'
-import { changeStatus } from './actions'
+import { changeStatus, updateOrder } from './actions'
+import { useFeatures } from '@/app/features'
+import { inputClass } from '@/components/ui/field'
+import { PhotoPicker } from '@/features/extras/PhotoPicker'
+import type { Karigar } from '@/features/extras/schemas'
+import { TokenSlipButton } from '@/features/extras/TokenSlip'
 import { DueLabel, STATUS_ICON, StatusChip, todayISO } from './components'
 import { itemTotal, nextStatus, orderTotal } from './logic'
 import { ORDER_STATUSES, PIPELINE, type Order, type OrderStatus } from './schema'
@@ -44,6 +49,8 @@ export function OrderDetailPage() {
   const order = orders?.find((o) => o.id === id)
   const { bills } = useLedger()
   const reminders = useReminders()
+  const on = useFeatures()
+  const karigars = useCollection<Karigar>(shopId, 'karigars')
   const bill = bills?.find((b) => b.orderId === id)
   const paid = useMemo(() => (payments ?? []).filter((p) => p.orderId === id).reduce((s, p) => s + p.amount, 0), [payments, id])
   if (orders === undefined) return null
@@ -151,7 +158,7 @@ export function OrderDetailPage() {
           })}
         </ol>
         {next && (
-          <Button variant={next === 'delivered' ? 'success' : 'primary'} block onClick={() => move(next)}>
+          <Button data-tour="order-next" variant={next === 'delivered' ? 'success' : 'primary'} block onClick={() => move(next)}>
             {STATUS_ICON[next]} {t('ord_moveTo', { status: t(`status_${next}`) })} <ArrowRight />
           </Button>
         )}
@@ -177,11 +184,33 @@ export function OrderDetailPage() {
       )}
 
       {order.status !== 'cancelled' && (
-        <Button asChild variant={bill ? 'secondary' : 'primary'} block>
+        <Button asChild variant={bill ? 'secondary' : 'primary'} block data-tour="order-bill">
           <Link to={bill ? `/bills/${bill.id}` : `/bills/new?order=${order.id}`}>
             <Receipt /> {bill ? t('bill_view') : t('bill_make')}
           </Link>
         </Button>
+      )}
+
+      {order.status !== 'cancelled' && <TokenSlipButton order={order} paid={paid} />}
+
+      {on('karigars') && (karigars?.length ?? 0) > 0 && (
+        <Card>
+          <label className="flex flex-col gap-1">
+            <span className="text-lg font-semibold">🧵 {t('kar_assign')}</span>
+            <select
+              className={inputClass}
+              value={order.karigarId ?? ''}
+              onChange={(e) => updateOrder(ctx, order, { karigarId: e.target.value || null })}
+            >
+              <option value="">{t('kar_unassigned')}</option>
+              {karigars!.filter((k) => k.active || k.id === order.karigarId).map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </Card>
       )}
 
       <Card className="grid grid-cols-3 gap-2">
@@ -242,6 +271,14 @@ export function OrderDetailPage() {
                 {item.fabricNotes && <div>🧵 {item.fabricNotes}</div>}
                 {!item.fabricByCustomer && <div className="text-ink-muted">({t('ord_fabric')}: {t('no')})</div>}
                 {item.notes && <div className="whitespace-pre-line">📝 {item.notes}</div>}
+                <div className="mt-2">
+                  <PhotoPicker
+                    url={item.designPhotoUrl}
+                    folder={'gota-dhaaga/' + order.orderNumber.split('/').join('-')}
+                    label={t('photo_design')}
+                    onChange={(url) => updateOrder(ctx, order, { items: order.items.map((it, j) => (j === i ? { ...it, designPhotoUrl: url } : it)) })}
+                  />
+                </div>
                 {item.measurementTakenOn ? (
                   <div className="mt-2 rounded-xl bg-surface-2 p-2">
                     <div className="mb-1 text-sm font-semibold text-gold-deep">{t('ord_measUsing', { ago: agoLabel(item.measurementTakenOn, lang) })}</div>

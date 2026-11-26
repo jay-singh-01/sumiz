@@ -30,7 +30,7 @@ const RETAIN_DAYS = 90
 // Re-read a little before the last run so a write landing mid-run is never missed. (Override only for tests.)
 const OVERLAP_MS = Number(process.env.BACKUP_OVERLAP_MS ?? 10 * 60 * 1000)
 const FULL_CHECK_EVERY_MS = 30 * 86_400_000
-const COLLECTIONS = ['customers', 'measurements', 'orders', 'bills', 'payments', 'reminders', 'expenses', 'karigars', 'garmentTypes', 'addOns', 'settings', 'counters', 'users']
+const COLLECTIONS = ['customers', 'measurements', 'orders', 'bills', 'payments', 'reminders', 'expenses', 'karigars', 'garmentTypes', 'addOns', 'settings', 'counters', 'materials', 'users']
 const SECRET = new Set(['pinHash', 'pinSalt'])
 
 if (process.env.FIRESTORE_EMULATOR_HOST) initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'demo-gota-dhaaga' })

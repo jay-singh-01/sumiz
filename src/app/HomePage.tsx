@@ -1,5 +1,5 @@
 import { motion } from 'motion/react'
-import { BarChart3, BellRing, ShieldCheck, CalendarCheck, Clock, IndianRupee, Plus, Users, Wallet } from 'lucide-react'
+import { BarChart3, BellRing, Package, ShieldCheck, CalendarCheck, Clock, IndianRupee, Plus, Users, Wallet } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useSession } from '@/auth/AuthGate'
@@ -10,18 +10,20 @@ import { cn } from '@/lib/cn'
 import { formatINR } from '@/lib/format'
 import { haptic } from '@/lib/haptics'
 import { backupDue } from '@/data/backupActions'
+import { useFeatures } from '@/app/features'
+import { isLow, type Material } from '@/features/extras/schemas'
 import { useCollection } from '@/data/hooks'
 import type { Stored } from '@/data/types'
 import { itemsSummary, StatusChip } from '@/features/orders/components'
 import { byUrgency, isDueToday, isOverdue } from '@/features/orders/logic'
 import type { Order } from '@/features/orders/schema'
 import { useLedger } from '@/features/bills/useLedger'
-import { daysBetween, oldestDueDate } from '@/features/bills/ledger'
+import { allOldestDueDates, daysBetween } from '@/features/bills/ledger'
 import { toISODate } from '@/lib/dates'
 
-function BigTile({ to, label, icon, className, delay }: { to: string; label: string; icon: ReactNode; className: string; delay: number }) {
+function BigTile({ to, label, icon, className, delay, tour }: { to: string; label: string; icon: ReactNode; className: string; delay: number; tour?: string }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 26, delay }}>
+    <motion.div data-tour={tour} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 26, delay }}>
       <Link
         to={to}
         onClick={() => haptic('tap')}
@@ -85,12 +87,16 @@ export function HomePage() {
   const orders = useCollection<Order>(shopId, 'orders')
   const todayIso = toISODate(now)
   const { dues, debtors, bills, payments, balances } = useLedger()
+  const on = useFeatures()
+  const materials = useCollection<Material>(shopId, 'materials')
+  const lowStock = on('materials') ? (materials ?? []).filter(isLow).length : 0
   // People worth reminding today: dues older than 15 days, or clothes ready for pickup.
   const toRemind = useMemo(() => {
     const ids = new Set<string>()
+    const oldest = allOldestDueDates(bills ?? [], payments ?? [])
     for (const [id, bal] of balances) {
       if (bal <= 0) continue
-      const since = oldestDueDate(id, bills ?? [], payments ?? [])
+      const since = oldest.get(id)
       if (since && daysBetween(since, todayIso) >= 15) ids.add(id)
     }
     for (const o of orders ?? []) if (o.status === 'ready') ids.add(o.customerId)
@@ -107,10 +113,10 @@ export function HomePage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
-        <BigTile to="/orders/new" label={t('home_newOrder')} icon={<Plus strokeWidth={2.5} />} className="bg-rani text-on-rani" delay={0} />
-        <BigTile to="/customers" label={t('home_customers')} icon={<Users />} className="bg-indigo-royal text-on-indigo" delay={0.05} />
-        <BigTile to="/payments/new" label={t('home_payment')} icon={<Wallet />} className="bg-emerald-deep text-on-emerald" delay={0.1} />
-        <BigTile to="/summary" label={t('home_summary')} icon={<BarChart3 />} className="bg-marigold text-on-marigold" delay={0.15} />
+        <BigTile tour="tile-order" to="/orders/new" label={t('home_newOrder')} icon={<Plus strokeWidth={2.5} />} className="bg-rani text-on-rani" delay={0} />
+        <BigTile tour="tile-customers" to="/customers" label={t('home_customers')} icon={<Users />} className="bg-indigo-royal text-on-indigo" delay={0.05} />
+        <BigTile tour="tile-payment" to="/payments/new" label={t('home_payment')} icon={<Wallet />} className="bg-emerald-deep text-on-emerald" delay={0.1} />
+        <BigTile tour="tile-summary" to="/summary" label={t('home_summary')} icon={<BarChart3 />} className="bg-marigold text-on-marigold" delay={0.15} />
       </div>
 
       {showBackupBanner && (
@@ -132,7 +138,13 @@ export function HomePage() {
         </Link>
       )}
 
-      <div className="grid gap-4 md:grid-cols-3">
+      {lowStock > 0 && (
+        <Link to="/materials" className="flex min-h-14 items-center gap-3 rounded-2xl border-2 border-danger bg-danger/10 px-4 py-3 text-lg font-semibold text-danger">
+          <Package className="size-6 shrink-0" /> {t('mat_low', { n: lowStock })} →
+        </Link>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-3" data-tour="home-deliveries">
         <ArchCard title={`${t('home_todayDeliveries')}${dueToday.length ? ` (${dueToday.length})` : ''}`} icon={<CalendarCheck />}>
           {dueToday.length === 0 ? (
             <Empty art={<Elephant className="h-14 w-20 text-indigo-royal/80" />} text={t('empty_deliveries')} />

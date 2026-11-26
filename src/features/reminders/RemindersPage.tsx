@@ -1,6 +1,9 @@
 import { CheckCircle2, MessageCircle, SkipForward } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
+import { useFeatures } from '@/app/features'
+import { FESTIVALS, GREETING_TEXT, isToday, type Festival } from '@/features/extras/greetings'
+import type { StringKey } from '@/i18n/strings'
 import { useSession } from '@/auth/AuthGate'
 import { Button } from '@/components/ui/button'
 import { ArchCard, Card } from '@/components/ui/card'
@@ -8,7 +11,7 @@ import { Chip, PageHeader, Tabs } from '@/components/ui/page'
 import { toast } from '@/components/ui/toast'
 import { useCollection } from '@/data/hooks'
 import { Elephant } from '@/design/motifs'
-import { billPaid, daysBetween, oldestDueDate } from '@/features/bills/ledger'
+import { allOldestDueDates, billPaid, daysBetween } from '@/features/bills/ledger'
 import { useLedger } from '@/features/bills/useLedger'
 import type { Customer } from '@/features/customers/schema'
 import { orderTotal } from '@/features/orders/logic'
@@ -20,7 +23,7 @@ import { formatDate, formatINR } from '@/lib/format'
 import { haptic } from '@/lib/haptics'
 import { useReminders, type ReminderTarget } from './useReminders'
 
-type Tab = 'dues' | 'ready' | 'trial'
+type Tab = 'dues' | 'ready' | 'trial' | 'greeting'
 const THRESHOLDS = [0, 15, 30, 60]
 
 interface Row {
@@ -45,7 +48,10 @@ export function RemindersPage() {
   const orders = useCollection<Order>(shopId, 'orders')
   const { bills, payments, balances } = useLedger()
   const { send, message, lastSent } = useReminders()
-  const [tab, setTab] = useState<Tab>('dues')
+  const [params] = useSearchParams()
+  const on = useFeatures()
+  const [tab, setTab] = useState<Tab>(() => (params.get('tab') === 'greeting' ? 'greeting' : 'dues'))
+  const [festival, setFestival] = useState<Festival>('diwali')
   const [minDays, setMinDays] = useState(15)
   const [sent, setSent] = useState<Set<string>>(new Set())
   const [cursor, setCursor] = useState(0)
@@ -57,11 +63,12 @@ export function RemindersPage() {
     if (!customers || !orders || !bills || !payments) return []
     const byId = new Map(customers.map((c) => [c.id, c]))
     if (tab === 'dues') {
+      const oldest = allOldestDueDates(bills, payments)
       return [...balances]
         .filter(([, bal]) => bal > 0)
         .map(([id, bal]) => {
           const c = byId.get(id)
-          const since = oldestDueDate(id, bills, payments)
+          const since = oldest.get(id)
           const age = since ? daysBetween(since, today) : 0
           return { c, bal, age, id }
         })
@@ -73,6 +80,24 @@ export function RemindersPage() {
           title: c!.name,
           detail: `${formatINR(bal)} · ${age > 0 ? t('rem_daysOld', { n: age }) : t('rem_dueToday')}`,
           link: `/customers/${id}?tab=money`,
+        }))
+    }
+    if (tab === 'greeting') {
+      const nowDate = new Date(now)
+      const list =
+        festival === 'birthday'
+          ? customers.filter((c) => isToday(c.birthday, nowDate))
+          : festival === 'anniversary'
+            ? customers.filter((c) => isToday(c.anniversary, nowDate))
+            : customers.filter((c) => c.phone)
+      return [...list]
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((c) => ({
+          key: `greeting:${festival}:${c.id}`,
+          target: { customerId: c.id, customerName: c.name, phone: c.phone, type: 'greeting' as const, text: GREETING_TEXT[festival] },
+          title: c.name,
+          detail: c.area || c.phone,
+          link: `/customers/${c.id}`,
         }))
     }
     if (tab === 'ready') {
@@ -120,7 +145,7 @@ export function RemindersPage() {
         detail: `${o.orderNumber} · ${o.trialDate === today ? t('rem_today') : t('rem_tomorrow')}`,
         link: `/orders/${o.id}`,
       }))
-  }, [tab, customers, orders, bills, payments, balances, minDays, today, tomorrow, t])
+  }, [tab, customers, orders, bills, payments, balances, minDays, today, tomorrow, t, festival, now])
 
   const pending = rows.filter((r) => !sent.has(r.key))
   const current = pending[Math.min(cursor, Math.max(0, pending.length - 1))]
@@ -131,7 +156,7 @@ export function RemindersPage() {
     setSent((s) => new Set(s).add(r.key))
   }
 
-  const empty = { dues: t('rem_noneDues'), ready: t('rem_noneReady'), trial: t('rem_noneTrial') }[tab]
+  const empty = { dues: t('rem_noneDues'), ready: t('rem_noneReady'), trial: t('rem_noneTrial'), greeting: t('gr_noneToday') }[tab]
 
   return (
     <div className="flex flex-col gap-4">
@@ -147,6 +172,7 @@ export function RemindersPage() {
           { value: 'dues', label: t('rem_dues') },
           { value: 'ready', label: t('rem_ready') },
           { value: 'trial', label: t('rem_trial') },
+          ...(on('greetings') ? [{ value: 'greeting' as const, label: t('gr_title').split(' ')[0] }] : []),
         ]}
       />
 
@@ -157,6 +183,19 @@ export function RemindersPage() {
             {THRESHOLDS.map((n) => (
               <Chip key={n} selected={minDays === n} onClick={() => setMinDays(n)}>
                 {n === 0 ? t('rem_all') : t('rem_days', { n })}
+              </Chip>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab === 'greeting' && (
+        <div className="flex flex-col gap-2">
+          <span className="text-lg font-semibold">{t('gr_festival')}</span>
+          <div className="flex flex-wrap gap-2">
+            {(['birthday', 'anniversary', ...FESTIVALS] as Festival[]).map((f) => (
+              <Chip key={f} selected={festival === f} onClick={() => { setFestival(f); setCursor(0) }}>
+                {t(`fest_${f}` as StringKey)}
               </Chip>
             ))}
           </div>

@@ -3,7 +3,9 @@ import { ArrowLeft, ArrowRight, Check, Minus, Plus, Ruler, Save, Search, Trash2,
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useSession } from '@/auth/AuthGate'
-import { useSettings } from '@/app/useShop'
+import { useIsManager, useSettings } from '@/app/useShop'
+import { useFeatures } from '@/app/features'
+import { VoiceButton } from '@/features/extras/VoiceButton'
 import { Button } from '@/components/ui/button'
 import { ArchCard, Card } from '@/components/ui/card'
 import { inputClass, TextAreaField, TextField } from '@/components/ui/field'
@@ -114,6 +116,13 @@ function OrderWizard({ existing }: { existing?: Stored<Order> }) {
   const [error, setError] = useState<string>()
 
   const customer = customers?.find((c) => c.id === d.customerId)
+  const on = useFeatures()
+  const allOrders = useCollection<Order>(shopId, 'orders')
+  // Every 10th order from the same customer: suggest a small loyalty discount.
+  const loyaltyN = (() => {
+    const n = (allOrders ?? []).filter((o) => o.customerId === d.customerId && o.status !== 'cancelled').length + 1
+    return n >= 10 && n % 10 === 0 ? n : 0
+  })()
   const total = orderTotal({ items: d.items })
   const advance = Math.max(0, Number(d.advance) || 0)
 
@@ -201,7 +210,7 @@ function OrderWizard({ existing }: { existing?: Stored<Order> }) {
       />
 
       {!existing && (
-        <div className="flex gap-2" aria-hidden>
+        <div className="flex gap-2" aria-hidden data-tour="wizard-steps">
           {[1, 2, 3].map((n) => (
             <div key={n} className={cn('h-2 flex-1 rounded-full transition', n <= d.step ? 'bg-rani' : 'bg-line')} />
           ))}
@@ -230,6 +239,9 @@ function OrderWizard({ existing }: { existing?: Stored<Order> }) {
             </Button>
           )}
         </Card>
+      )}
+      {customer && d.step > 1 && !existing && on('loyalty') && loyaltyN > 0 && (
+        <p className="rounded-xl border-2 border-marigold bg-marigold/15 p-3 text-lg font-semibold">🎁 {t('loy_note', { n: loyaltyN })}</p>
       )}
 
       <motion.div key={d.step} initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.18 }}>
@@ -285,6 +297,7 @@ function OrderWizard({ existing }: { existing?: Stored<Order> }) {
               <TextField label={t('ord_trialDate')} type="date" value={d.trialDate} min={d.orderDate} onChange={(e) => set({ trialDate: e.target.value })} />
               <SwitchRow label={`🔥 ${t('ord_urgent')}`} checked={d.urgent} onCheckedChange={(v) => set({ urgent: v })} />
               <TextAreaField label={t('cust_notes')} value={d.notes} onChange={(e) => set({ notes: e.target.value })} />
+              <VoiceButton className="self-start" onText={(x) => set({ notes: d.notes ? d.notes + ' ' + x : x })} />
             </Card>
 
             {!existing && (
@@ -346,7 +359,7 @@ function OrderWizard({ existing }: { existing?: Stored<Order> }) {
                 <ArrowLeft />
               </Button>
             )}
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1" data-tour="wizard-total">
               <div className="text-sm text-ink-muted">{t('ord_total')}</div>
               <div className="money text-2xl font-bold text-rani">{formatINR(total)}</div>
             </div>
@@ -515,6 +528,7 @@ function ItemCard({
   onRemove: () => void
 }) {
   const { t } = useI18n()
+  const canEditRates = useIsManager()
   const name = garment ? (lang === 'hi' ? garment.nameHi : garment.nameEn) : item.garmentName
   const activeAddOns = addOns.filter((a) => a.active || item.addOns.some((x) => x.addOnId === a.id)).sort((a, b) => a.sortOrder - b.sortOrder)
 
@@ -553,6 +567,8 @@ function ItemCard({
             min={0}
             className="money text-2xl"
             value={item.rate}
+            disabled={!canEditRates}
+            hint={canEditRates ? undefined : t('helper_rateLocked')}
             onChange={(e) => onChange({ rate: Math.max(0, Number(e.target.value) || 0) })}
           />
         </div>
@@ -575,6 +591,7 @@ function ItemCard({
                   inputMode="decimal"
                   min={0}
                   aria-label={`${a.name} ${t('rate')}`}
+                  disabled={!canEditRates}
                   className={cn(inputClass, "money w-32 shrink-0 text-right")}
                   value={a.rate}
                   onChange={(e) => onChange({ addOns: item.addOns.map((x, k) => (k === j ? { ...x, rate: Math.max(0, Number(e.target.value) || 0) } : x)) })}

@@ -9,7 +9,8 @@ import { Avatar, PageHeader, Tabs } from '@/components/ui/page'
 import { toast } from '@/components/ui/toast'
 import { useCollection } from '@/data/hooks'
 import type { Stored } from '@/data/types'
-import { restoreRecord, softDeleteRecord } from '@/data/write'
+import { restoreRecord, softDeleteRecord, updateRecord } from '@/data/write'
+import { PhotoPicker } from '@/features/extras/PhotoPicker'
 import { Paisley } from '@/design/motifs'
 import { BalanceText, LedgerTab } from '@/features/bills/LedgerTab'
 import { useLedger } from '@/features/bills/useLedger'
@@ -24,7 +25,7 @@ import { fromISODate } from '@/lib/dates'
 import { cn } from '@/lib/cn'
 import { formatPhone, telLink, whatsappLink } from '@/lib/whatsapp'
 import { TagChips } from './CustomersPage'
-import type { Customer } from './schema'
+import { customerSchema, type Customer } from './schema'
 
 type Tab = 'measurements' | 'orders' | 'money'
 
@@ -110,6 +111,13 @@ export function CustomerProfilePage() {
           </dl>
         )}
       </Card>
+
+      <PhotoPicker
+        url={c.photoUrl}
+        folder="gota-dhaaga/customers"
+        label={t('photo_diary')}
+        onChange={(url) => updateRecord(ctx, 'customers', customerSchema, c, { photoUrl: url }, { label: c.name })}
+      />
 
       <Tabs<Tab>
         value={tab}

@@ -2,7 +2,8 @@ import { Minus, Plus, Save, Trash2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useSession } from '@/auth/AuthGate'
-import { useSettings } from '@/app/useShop'
+import { useIsManager, useSettings } from '@/app/useShop'
+import type { Settings } from '@/data/schemas'
 import { Button } from '@/components/ui/button'
 import { ArchCard, Card } from '@/components/ui/card'
 import { inputClass, TextAreaField, TextField } from '@/components/ui/field'
@@ -32,7 +33,9 @@ export function BillEditorPage() {
   const bills = useCollection<Bill>(shopId, 'bills')
   const orders = useCollection<Order>(shopId, 'orders')
   const customers = useCollection<Customer>(shopId, 'customers')
-  if (!bills || !orders || !customers) return null
+  // Wait for settings too: a new bill freezes the shop's GST setting when it opens.
+  const { settings, doc: settingsDoc } = useSettings()
+  if (!bills || !orders || !customers || settingsDoc === undefined) return null
 
   const orderId = params.get('order')
   const existing = id ? bills.find((b) => b.id === id) : undefined
@@ -45,30 +48,32 @@ export function BillEditorPage() {
   const customerId = existing?.customerId ?? order?.customerId ?? params.get('customer') ?? ''
   const customer = customers.find((c) => c.id === customerId)
   if (!customer) return <PageHeader title="…" back="/" />
-  return <BillEditor key={existing?.id ?? orderId ?? customerId} existing={existing} order={order} customer={customer} />
+  return <BillEditor key={existing?.id ?? orderId ?? customerId} existing={existing} order={order} customer={customer} settings={settings} />
 }
 
-function BillEditor({ existing, order, customer }: { existing?: Stored<Bill>; order?: Stored<Order>; customer: Stored<Customer> }) {
+function BillEditor({ existing, order, customer, settings }: { existing?: Stored<Bill>; order?: Stored<Order>; customer: Stored<Customer>; settings: Settings }) {
   const { t } = useI18n()
   const { ctx, shopId } = useSession()
   const navigate = useNavigate()
-  const { settings } = useSettings()
   const [letter, setLetter] = useState<string | null>(() => getDeviceLetter(shopId))
   const counter = useDoc<DeviceCounter>(`shops/${shopId}/counters/device-${letter ?? '_'}`)
   const standalone = !existing && !order
+  const canEditRates = useIsManager()
   useEffect(() => {
     if (standalone && !letter) void ensureDeviceLetter(ctx).then(setLetter).catch(() => undefined)
   }, [standalone, letter, ctx])
 
   const [initial] = useState<BillDraft>(() =>
     existing
-      ? { billDate: existing.billDate, lines: existing.lines, discount: existing.discount, roundOff: existing.roundOff, notes: existing.notes }
+      ? { billDate: existing.billDate, lines: existing.lines, discount: existing.discount, roundOff: existing.roundOff, notes: existing.notes, gstPercent: existing.gstPercent, gstin: existing.gstin }
       : {
           billDate: toISODate(new Date()),
           lines: order ? linesFromOrder(order) : [EMPTY_LINE],
           discount: { type: 'flat', value: 0 },
           roundOff: true,
           notes: '',
+          // GST only when switched on in Settings; the rate is frozen onto the bill.
+          ...(settings.gst?.enabled ? { gstPercent: settings.gst.rate, gstin: settings.gst.gstin } : {}),
         },
   )
   const draft = useDraft<BillDraft>(`bill:${existing?.id ?? order?.id ?? `new:${customer.id}`}`, initial)
@@ -79,7 +84,7 @@ function BillEditor({ existing, order, customer }: { existing?: Stored<Bill>; or
 
   const totals = (() => {
     try {
-      return computeBill({ lines: d.lines, discount: d.discount, roundOff: d.roundOff })
+      return computeBill({ lines: d.lines, discount: d.discount, roundOff: d.roundOff, taxPercent: d.gstPercent })
     } catch {
       return null
     }
@@ -154,7 +159,7 @@ function BillEditor({ existing, order, customer }: { existing?: Stored<Bill>; or
                   </Button>
                 </div>
               </div>
-              <TextField label={t('rate')} type="number" inputMode="decimal" min={0} className="money text-2xl" value={line.rate} onChange={(e) => setLine(i, { rate: Math.max(0, Number(e.target.value) || 0) })} />
+              <TextField label={t('rate')} type="number" inputMode="decimal" min={0} className="money text-2xl" value={line.rate} disabled={!canEditRates} hint={canEditRates ? undefined : t('helper_rateLocked')} onChange={(e) => setLine(i, { rate: Math.max(0, Number(e.target.value) || 0) })} />
             </div>
             {line.addOns.map((a, j) => (
               <div key={j} className="flex items-center gap-2">
@@ -223,6 +228,7 @@ function BillEditor({ existing, order, customer }: { existing?: Stored<Bill>; or
         <Card className="flex flex-col gap-1 border-2 border-gold text-lg">
           <Row label={t('ord_total')} value={formatINR(totals.subtotal)} />
           {totals.discount > 0 && <Row label={t('bill_discount')} value={`− ${formatINR(totals.discount)}`} />}
+          {totals.tax > 0 && <Row label={t('gst_line', { rate: d.gstPercent ?? 0 })} value={formatINR(totals.tax)} />}
           {totals.roundOff !== 0 && <Row label="राउंड ऑफ़" value={formatINR(totals.roundOff)} />}
         </Card>
       )}

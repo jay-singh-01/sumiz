@@ -58,8 +58,23 @@ describe('computeBill', () => {
     expect(over.status).toBe('paid')
   })
 
+  it('adds GST after discount and before round-off', () => {
+    const b = computeBill({ lines, discount: { type: 'flat', value: 50 }, taxPercent: 5, roundOff: true })
+    expect(b.tax).toBe(125) // 5% of 2500
+    expect(b.total).toBe(2625)
+    expect(computeBill({ lines, taxPercent: 0 }).tax).toBe(0)
+  })
+
   it('avoids floating-point drift', () => {
     const b = computeBill({ lines: [{ qty: 3, rate: 0.1 }, { qty: 1, rate: 0.2 }] })
     expect(b.total).toBe(0.5)
+  })
+})
+
+describe('splitGst', () => {
+  it('splits into halves that add back exactly', async () => {
+    const { splitGst } = await import('./math')
+    expect(splitGst(125)).toEqual({ cgst: 62.5, sgst: 62.5 })
+    expect(splitGst(0.03)).toEqual({ cgst: 0.01, sgst: 0.02 })
   })
 })

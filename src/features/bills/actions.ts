@@ -8,10 +8,10 @@ import { paymentSchema, type Payment } from '@/features/payments/schema'
 import { computeBill } from './math'
 import { billSchema, type Bill, type BillLine } from './schema'
 
-export type BillDraft = Pick<Bill, 'billDate' | 'lines' | 'discount' | 'roundOff' | 'notes'>
+export type BillDraft = Pick<Bill, 'billDate' | 'lines' | 'discount' | 'roundOff' | 'notes' | 'gstPercent' | 'gstin'>
 
-export const totalOf = (d: Pick<Bill, 'lines' | 'discount' | 'roundOff'>) =>
-  computeBill({ lines: d.lines, discount: d.discount, roundOff: d.roundOff }).total
+export const totalOf = (d: Pick<Bill, 'lines' | 'discount' | 'roundOff' | 'gstPercent'>) =>
+  computeBill({ lines: d.lines, discount: d.discount, roundOff: d.roundOff, taxPercent: d.gstPercent }).total
 
 /** Order items → bill lines (rates as agreed on the order; still editable). */
 export function linesFromOrder(order: Pick<Order, 'items'>): BillLine[] {

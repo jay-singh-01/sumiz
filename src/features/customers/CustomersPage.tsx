@@ -60,7 +60,7 @@ export function CustomersPage() {
       />
 
       <div className="sticky top-[4.6rem] z-20 -mx-4 mb-4 bg-ivory/95 px-4 pb-2 backdrop-blur md:static md:mx-0 md:bg-transparent md:px-0">
-        <div className="relative">
+        <div className="relative" data-tour="customer-search">
           <Search className="pointer-events-none absolute top-1/2 left-4 size-6 -translate-y-1/2 text-ink-muted" />
           <input
             type="search"
@@ -81,7 +81,7 @@ export function CustomersPage() {
             </button>
           )}
         </div>
-        <Button asChild block className="mt-3">
+        <Button asChild block className="mt-3" data-tour="customer-add">
           <Link to={`/customers/new${q ? `?name=${encodeURIComponent(q)}` : ''}`}>
             <UserPlus /> {t('cust_add')}
           </Link>

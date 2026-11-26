@@ -27,6 +27,7 @@ export const BACKUP_COLLECTIONS = [
   'addOns',
   'settings',
   'counters',
+  'materials',
   'users',
   'auditLogs',
 ] as const

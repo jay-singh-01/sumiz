@@ -44,5 +44,8 @@ export const billSchema = z.object({
   revision: z.number().int().min(1),
   revisions: z.array(billRevisionSchema).max(50),
   notes: z.string().trim().max(500),
+  /** GST % applied on this bill (absent / 0 = none) and the GSTIN printed on it. */
+  gstPercent: z.number().min(0).max(28).optional(),
+  gstin: z.string().max(15).optional(),
 })
 export type Bill = z.infer<typeof billSchema>

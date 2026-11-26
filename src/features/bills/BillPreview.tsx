@@ -3,7 +3,7 @@ import logoMonoUrl from '@/assets/logo-mono.svg'
 import type { Settings } from '@/data/schemas'
 import { cn } from '@/lib/cn'
 import { formatDate, formatINR } from '@/lib/format'
-import { computeBill, type BillInput } from './math'
+import { computeBill, splitGst, type BillInput } from './math'
 
 /*
  * The bill: rendered as real HTML/CSS so the browser shapes Devanagari
@@ -20,6 +20,7 @@ export interface BillView extends BillInput {
   /** Shown when the bill has been edited after issue. */
   revision?: number
   notes?: string
+  gstin?: string
 }
 
 const ARCH =
@@ -80,6 +81,7 @@ export function BillPreview({
             {shop.phone && `📞 ${shop.phone}`}
           </p>
         )}
+        {bill.gstin && <p className="relative mt-0.5 text-ink-muted">GSTIN: {bill.gstin}</p>}
       </header>
 
       <div className="relative mx-2 mt-4 flex items-end justify-between border-y-2 border-dashed border-[#e6c46a] py-2">
@@ -152,6 +154,12 @@ export function BillPreview({
         <div className="flex-1">
           <Row label="कुल / Subtotal" value={formatINR(t.subtotal)} />
           {t.discount > 0 && <Row label="छूट / Discount" value={`− ${formatINR(t.discount)}`} />}
+          {t.tax > 0 && (
+            <>
+              <Row label={`CGST ${(bill.taxPercent ?? 0) / 2}%`} value={formatINR(splitGst(t.tax).cgst)} muted />
+              <Row label={`SGST ${(bill.taxPercent ?? 0) / 2}%`} value={formatINR(splitGst(t.tax).sgst)} muted />
+            </>
+          )}
           {t.roundOff !== 0 && <Row label="राउंड ऑफ़" value={formatINR(t.roundOff)} muted />}
           <Row label="कुल राशि / Total" value={formatINR(t.total)} strong />
           {t.paid > 0 && <Row label="जमा / Paid" value={`− ${formatINR(t.paid)}`} />}

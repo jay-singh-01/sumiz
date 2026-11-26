@@ -132,7 +132,7 @@ export function LedgerTab({ customer }: { customer: Stored<Customer> }) {
           <ul className="flex flex-col gap-2">
             {mineBills.map((b) => {
               const paid = billPaid(b, payments ?? [])
-              const status = computeBill({ lines: b.lines, discount: b.discount, roundOff: b.roundOff, payments: [paid] }).status
+              const status = computeBill({ lines: b.lines, discount: b.discount, roundOff: b.roundOff, taxPercent: b.gstPercent, payments: [paid] }).status
               return (
                 <li key={b.id}>
                   <Link to={`/bills/${b.id}`} className="flex items-center gap-3 rounded-xl bg-surface-2 px-3 py-2 active:bg-line">

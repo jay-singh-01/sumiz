@@ -27,6 +27,8 @@ export interface BillInput {
   discount?: Discount
   /** Round the grand total to the nearest rupee. */
   roundOff?: boolean
+  /** GST % on the amount after discount (0 / undefined = no GST). */
+  taxPercent?: number
   /** Advance taken when the order was placed. */
   advance?: number
   /** Further payments applied to this bill. */
@@ -37,6 +39,8 @@ export interface BillTotals {
   lineTotals: number[]
   subtotal: number
   discount: number
+  /** GST amount (0 when GST is off). */
+  tax: number
   roundOff: number
   total: number
   paid: number
@@ -76,7 +80,10 @@ export function computeBill(input: BillInput): BillTotals {
     discount = Math.min(discount, subtotal) // never a negative bill
   }
 
-  const beforeRound = subtotal - discount
+  const taxable = subtotal - discount
+  const rate = input.taxPercent && input.taxPercent > 0 ? Math.min(input.taxPercent, 28) : 0
+  const tax = Math.round((taxable * rate) / 100)
+  const beforeRound = taxable + tax
   const total = input.roundOff ? Math.round(beforeRound / 100) * 100 : beforeRound
   const roundOff = total - beforeRound
 
@@ -89,10 +96,18 @@ export function computeBill(input: BillInput): BillTotals {
     lineTotals: linePaise.map(toRupees),
     subtotal: toRupees(subtotal),
     discount: toRupees(discount),
+    tax: toRupees(tax),
     roundOff: toRupees(roundOff),
     total: toRupees(total),
     paid: toRupees(paid),
     balance: toRupees(balance),
     status: paid === 0 && total > 0 ? 'unpaid' : balance > 0 ? 'partial' : 'paid',
   }
+}
+
+/** Splits GST into CGST + SGST halves that always add back to the exact total (paise-safe). */
+export function splitGst(tax: number): { cgst: number; sgst: number } {
+  const paise = Math.round(tax * 100)
+  const cgst = Math.floor(paise / 2)
+  return { cgst: cgst / 100, sgst: (paise - cgst) / 100 }
 }

@@ -24,6 +24,9 @@ import { cn } from '@/lib/cn'
 import { fromISODate, toISODate } from '@/lib/dates'
 import { formatDate, formatINR, formatNumber } from '@/lib/format'
 import { AgeingChart, CalendarHeat, HBarChart, TrendChart } from './charts'
+import { useFeatures } from '@/app/features'
+import { karigarStats } from '@/features/extras/KarigarsPage'
+import type { Expense, Karigar } from '@/features/extras/schemas'
 import { downloadWorkbook } from './excel'
 import {
   AGE_BUCKETS,
@@ -136,6 +139,9 @@ export function SummaryPage() {
   const orders = useCollection<Order>(shopId, 'orders')
   const garments = useCollection<GarmentType>(shopId, 'garmentTypes')
   const { bills, payments, balances, dues } = useLedger()
+  const on = useFeatures()
+  const expenses = useCollection<Expense>(shopId, 'expenses')
+  const karigars = useCollection<Karigar>(shopId, 'karigars')
   const [now] = useState(() => new Date())
   const today = toISODate(now)
 
@@ -255,6 +261,13 @@ export function SummaryPage() {
     }
   }
 
+  const spent = (expenses ?? []).filter((e) => e.date >= range.from && e.date <= range.to).reduce((s, e) => s + Math.round(e.amount * 100), 0) / 100
+  const byArea = [...customers.reduce((acc, c) => acc.set(c.area?.trim() || '—', (acc.get(c.area?.trim() || '—') ?? 0) + 1), new Map<string, number>())]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([name, value]) => ({ name, value }))
+  const karigarRows = (karigars ?? []).filter((k) => k.active).map((k) => ({ k, s: karigarStats(k, orders, expenses ?? []) }))
+
   const topRows = m.top[topBy]
   const topFmt = (v: number) => (topBy === 'byOrders' ? formatNumber(v) : formatINR(v))
   const maxPipe = Math.max(1, ...m.pipeline.map((x) => x.count))
@@ -350,6 +363,8 @@ export function SummaryPage() {
           <Kpi label={t('sum_inProgress')} value={m.k.inProgress} format={formatNumber} />
           <Kpi label={t('sum_delivered')} value={m.k.delivered} format={formatNumber} />
           <Kpi label={t('sum_newCustomers')} value={m.k.newCustomers} format={formatNumber} />
+          {on('expenses') && <Kpi label={t('sum_expenses')} value={spent} format={formatINR} />}
+          {on('expenses') && <Kpi label={t('sum_profit')} value={m.k.collected - spent} format={formatINR} tone={m.k.collected - spent >= 0 ? 'emerald' : 'rani'} hint={t('sum_profitHelp')} />}
           <Kpi label={t('sum_onTime')} value={m.k.onTimePct} format={(v) => `${Math.round(v)}%`} tone={m.k.onTimePct !== null && m.k.onTimePct < 70 ? 'rani' : 'emerald'} />
         </div>
 
@@ -458,6 +473,26 @@ export function SummaryPage() {
               </ol>
             )}
           </ArchCard>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <ChartCard title={t('sum_areas')} table={{ header: [t('sum_area'), t('nav_customers')], rows: byArea.map((r) => [r.name, r.value]) }}>
+            {byArea.length ? <HBarChart rows={byArea} format={formatNumber} /> : <p className="text-ink-muted">{t('sum_none')}</p>}
+          </ChartCard>
+          {on('karigars') && karigarRows.length > 0 && (
+            <ArchCard title={t('sum_karigars')}>
+              <ul className="flex flex-col gap-2">
+                {karigarRows.map(({ k, s }) => (
+                  <li key={k.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-line py-1">
+                    <span className="font-semibold">{k.name}</span>
+                    <span className="money text-ink-muted">
+                      {t('kar_open', { n: s.open })} · {t('kar_earned')} {formatINR(s.earned)} · {t('kar_due')} {formatINR(Math.max(0, s.due))}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </ArchCard>
+          )}
         </div>
 
         <ChartCard

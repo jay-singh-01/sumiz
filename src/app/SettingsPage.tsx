@@ -17,6 +17,7 @@ import { settingsSchema, type Settings, type ShopUser } from '@/data/schemas'
 import type { Stored } from '@/data/types'
 import { updateRecord } from '@/data/write'
 import { TemplatesEditor } from '@/features/reminders/TemplatesEditor'
+import { DeviceExtras, ExtrasSettings } from '@/features/extras/ExtrasSettings'
 import { useI18n } from '@/i18n'
 import { useDisplayPrefs } from './display'
 import { useIsManager, useSettings } from './useShop'
@@ -111,6 +112,7 @@ function Display() {
         </Button>
       </div>
       <SwitchRow label={t('largeText')} hint={t('largeTextHint')} checked={prefs.largeText} onCheckedChange={(v) => setPrefs({ largeText: v })} />
+      <DeviceExtras />
     </ArchCard>
   )
 }
@@ -288,6 +290,7 @@ export function SettingsPage() {
       <ShopDetails />
       <TemplatesEditor />
       <Display />
+      <ExtrasSettings />
       {isManager && (
         <Button asChild variant="secondary" block>
           <Link to="/master">

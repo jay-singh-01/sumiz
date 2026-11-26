@@ -13,6 +13,7 @@ import { createRecord, softDeleteRecord, updateRecord } from '@/data/write'
 import { useI18n } from '@/i18n'
 import type { StringKey } from '@/i18n/strings'
 import { useDraft } from '@/lib/useDraft'
+import { VoiceButton } from '@/features/extras/VoiceButton'
 import { CUSTOMER_TAGS, customerSchema, EMPTY_CUSTOMER, normalizePhone, type Customer } from './schema'
 
 type Errors = Partial<Record<keyof Customer, string>>
@@ -99,7 +100,12 @@ function CustomerForm({ existing, all }: { existing?: Stored<Customer>; all: Sto
       )}
 
       <Card className="flex flex-col gap-4">
-        <TextField label={t('cust_name')} value={c.name} error={errors.name} autoComplete="off" onChange={(e) => set('name', e.target.value)} />
+        <div className="flex items-end gap-2">
+          <div className="flex-1">
+            <TextField label={t('cust_name')} value={c.name} error={errors.name} autoComplete="off" onChange={(e) => set('name', e.target.value)} />
+          </div>
+          <VoiceButton onText={(x) => set('name', x)} />
+        </div>
         <TextField
           label={t('cust_phone')}
           value={c.phone}
@@ -157,6 +163,7 @@ function CustomerForm({ existing, all }: { existing?: Stored<Customer>; all: Sto
               <TextField label={t('cust_anniversary')} type="date" value={c.anniversary} onChange={(e) => set('anniversary', e.target.value)} />
             </div>
             <TextAreaField label={t('cust_notes')} value={c.notes} onChange={(e) => set('notes', e.target.value)} />
+            <VoiceButton className="self-start" onText={(x) => set('notes', c.notes ? c.notes + ' ' + x : x)} />
           </div>
         )}
       </Card>

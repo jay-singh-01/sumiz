@@ -3,7 +3,7 @@
  * Pure functions over plain records so every number on the dashboard is
  * unit-tested. Money in integer paise internally.
  */
-import { billPaid, daysBetween, oldestDueDate, type LedgerBill, type LedgerPayment } from '@/features/bills/ledger'
+import { allOldestDueDates, billPaid, daysBetween, type LedgerBill, type LedgerPayment } from '@/features/bills/ledger'
 import { itemTotal, orderTotal } from '@/features/orders/logic'
 import { OPEN_STATUSES, PIPELINE, type Order, type OrderStatus } from '@/features/orders/schema'
 import { financialYear } from '@/lib/format'
@@ -156,9 +156,10 @@ export function ageBucket(days: number): (typeof AGE_BUCKETS)[number] {
 /** Outstanding dues by age of the oldest unpaid money (FIFO), with the customers in each bucket. */
 export function duesAgeing(balances: Map<string, number>, bills: B[], payments: P[], todayISO: string) {
   const buckets = AGE_BUCKETS.map((label) => ({ label, amount: 0, customers: [] as { customerId: string; amount: number; days: number }[] }))
+  const oldest = allOldestDueDates(bills, payments)
   for (const [customerId, bal] of balances) {
     if (bal <= 0) continue
-    const since = oldestDueDate(customerId, bills, payments) ?? todayISO
+    const since = oldest.get(customerId) ?? todayISO
     const days = Math.max(0, daysBetween(since, todayISO))
     const b = buckets[AGE_BUCKETS.indexOf(ageBucket(days))]
     b.amount += p(bal)

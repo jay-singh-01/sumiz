@@ -12,7 +12,7 @@ rules_version = '2';
 //    that also works offline, unlike client transactions).
 //  - Users only see the shop they belong to. "Sign out of all devices" is
 //    enforced here via users/{uid}.revokedBefore vs the token's auth_time.
-//  - Helpers can't change rates, settings or user roles.
+//  - Helpers can't change rates (garments, add-ons, karigar rates), settings or user roles.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -58,13 +58,14 @@ service cloud.firestore {
     function isBusiness(coll) {
       return coll in [
         'customers', 'measurements', 'orders', 'bills', 'payments', 'reminders',
-        'expenses', 'karigars', 'garmentTypes', 'addOns', 'settings', 'counters'
+        'expenses', 'karigars', 'garmentTypes', 'addOns', 'settings', 'counters',
+        'materials'
       ];
     }
 
     // Collections only owner/admin may write.
     function isManagerOnly(coll) {
-      return coll in ['garmentTypes', 'addOns', 'settings'];
+      return coll in ['garmentTypes', 'addOns', 'settings', 'karigars'];
     }
 
     function validCreateMeta() {
@@ -171,6 +172,25 @@ service cloud.firestore {
         && d.channel == 'whatsapp';
     }
 
+    function validExpense(d) {
+      return d.category in ['thread', 'buttons', 'lining', 'repair', 'karigar', 'electricity', 'other']
+        && d.amount is number && d.amount > 0
+        && d.date is string;
+    }
+
+    function validKarigar(d) {
+      return d.name is string && d.name.size() > 0 && d.name.size() <= 80
+        && d.ratePerPiece is number && d.ratePerPiece >= 0
+        && d.active is bool;
+    }
+
+    function validMaterial(d) {
+      return d.name is string && d.name.size() > 0 && d.name.size() <= 60
+        && d.qty is number && d.qty >= 0
+        && d.minQty is number && d.minQty >= 0
+        && d.active is bool;
+    }
+
     function validCounter(d) {
       return d.seq is int && d.seq >= 0 && d.letter is string && d.fy is string;
     }
@@ -184,6 +204,9 @@ service cloud.firestore {
         : coll == 'payments' ? validPayment(d)
         : coll == 'bills' ? validBill(d)
         : coll == 'reminders' ? validReminder(d)
+        : coll == 'expenses' ? validExpense(d)
+        : coll == 'karigars' ? validKarigar(d)
+        : coll == 'materials' ? validMaterial(d)
         : coll == 'counters' ? validCounter(d)
         : true;
     }

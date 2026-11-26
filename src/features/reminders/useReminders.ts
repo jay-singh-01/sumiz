@@ -19,6 +19,8 @@ export interface ReminderTarget {
   date?: string
   orderId?: string | null
   billId?: string | null
+  /** Custom template (e.g. a festival greeting) instead of the shop's template for this type. */
+  text?: string
 }
 
 /**
@@ -53,7 +55,7 @@ export function useReminders() {
       upi: settings.upiId || undefined,
       shop: settings.shopName,
     }
-    return buildMessage(templates[target.type], vars)
+    return buildMessage(target.text ?? templates[target.type], vars)
   }
 
   /** Opens the chat and records the reminder. Returns false if the number can't be messaged. */
