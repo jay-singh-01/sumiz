@@ -23,6 +23,17 @@ export function formatNumber(value: number): string {
   return numberFormatter.format(value)
 }
 
+/** Short Indian money for chart axes: ₹950, ₹12K, ₹1.2L, ₹3.4Cr. */
+export function formatINRCompact(amount: number): string {
+  const a = Math.abs(amount)
+  const sign = amount < 0 ? '-' : ''
+  const trim = (n: number) => String(Math.round(n * 10) / 10)
+  if (a >= 1e7) return `${sign}₹${trim(a / 1e7)}Cr`
+  if (a >= 1e5) return `${sign}₹${trim(a / 1e5)}L`
+  if (a >= 1e3) return `${sign}₹${trim(a / 1e3)}K`
+  return `${sign}₹${Math.round(a)}`
+}
+
 /** DD/MM/YYYY in the device's local time zone. */
 export function formatDate(date: Date): string {
   const dd = String(date.getDate()).padStart(2, '0')

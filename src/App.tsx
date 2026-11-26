@@ -1,7 +1,6 @@
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router'
 import { AuthGate } from '@/auth/AuthGate'
 import { AppShell } from '@/app/AppShell'
-import { ComingSoon } from '@/app/ComingSoon'
 import { HomePage } from '@/app/HomePage'
 import { BillEditorPage } from '@/features/bills/BillEditor'
 import { BillPage } from '@/features/bills/BillPage'
@@ -38,7 +37,7 @@ const router = createBrowserRouter([
       { path: 'bills/:id', element: <BillPage /> },
       { path: 'bills/:id/edit', element: <BillEditorPage /> },
       { path: 'reminders', element: <RemindersPage /> },
-      { path: 'summary/*', element: <ComingSoon title="nav_summary" phase={8} /> },
+      { path: 'summary', lazy: async () => ({ Component: (await import('@/features/reports/SummaryPage')).SummaryPage }) },
       { path: 'master', lazy: async () => ({ Component: (await master()).MasterDataPage }) },
       { path: 'master/garments/:id', lazy: async () => ({ Component: (await master()).GarmentEditorPage }) },
       { path: 'master/addons/:id', lazy: async () => ({ Component: (await master()).AddOnEditorPage }) },

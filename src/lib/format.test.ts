@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { financialYear, formatDate, formatINR, formatNumber } from './format'
+import { financialYear, formatDate, formatINR, formatINRCompact, formatNumber } from './format'
 
 describe('formatINR', () => {
   it('uses Indian lakh grouping', () => {
@@ -39,5 +39,11 @@ describe('financialYear', () => {
 
   it('wraps across centuries', () => {
     expect(financialYear(new Date(2099, 5, 1))).toBe('99-00')
+  })
+})
+
+describe('formatINRCompact', () => {
+  it('shortens in the Indian system', () => {
+    expect([950, 12_000, 125_000, 3_400_000, 34_000_000, -1500].map(formatINRCompact)).toEqual(['₹950', '₹12K', '₹1.3L', '₹34L', '₹3.4Cr', '-₹1.5K'])
   })
 })

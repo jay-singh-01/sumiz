@@ -39,6 +39,27 @@ export async function pngToPdf(dataUrl: string, node: HTMLElement, size: PdfSize
   return pdf.output('blob')
 }
 
+/** A tall capture (e.g. the summary dashboard) split across as many A4 pages as needed. */
+export async function pngToPagedPdf(dataUrl: string, node: HTMLElement): Promise<Blob> {
+  const { jsPDF } = await import('jspdf')
+  const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' })
+  const pageW = pdf.internal.pageSize.getWidth()
+  const pageH = pdf.internal.pageSize.getHeight()
+  const margin = 24
+  const scale = (pageW - margin * 2) / node.offsetWidth
+  const imgH = node.offsetHeight * scale
+  const usable = pageH - margin * 2
+  for (let y = 0, page = 0; y < imgH; y += usable, page++) {
+    if (page > 0) pdf.addPage()
+    // Shift the same image up one page-height each time; the margin hides the seam.
+    pdf.addImage(dataUrl, 'PNG', margin, margin - y, pageW - margin * 2, imgH, undefined, 'FAST')
+    pdf.setFillColor(255, 255, 255)
+    pdf.rect(0, 0, pageW, margin, 'F')
+    pdf.rect(0, pageH - margin, pageW, margin, 'F')
+  }
+  return pdf.output('blob')
+}
+
 export function dataUrlToBlob(dataUrl: string): Blob {
   const [head, body] = dataUrl.split(',')
   const mime = head.match(/data:(.*?);/)?.[1] ?? 'application/octet-stream'
